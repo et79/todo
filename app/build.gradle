@@ -33,7 +33,9 @@ dependencies {
     // Firebase
     compile 'com.google.firebase:firebase-auth:9.8.0'
     compile 'com.google.firebase:firebase-database:9.8.0'
-    compile 'com.google.firebase:firebase-auth:9.8.0'
+
+    // Firebase UI
+    compile 'com.firebaseui:firebase-ui-database:0.4.0'
 
     testCompile 'junit:junit:4.12'
 }

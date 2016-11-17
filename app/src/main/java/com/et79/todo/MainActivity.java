@@ -1,10 +1,15 @@
 package com.et79.todo;
 
 import android.content.Intent;
+import android.graphics.Canvas;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.support.v4.content.ContextCompat;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.View;
 import android.support.design.widget.NavigationView;
@@ -15,19 +20,36 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.firebase.ui.database.FirebaseRecyclerAdapter;
 import com.google.android.gms.auth.api.Auth;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener, GoogleApiClient.OnConnectionFailedListener{
 
+    public static class TaskViewHolder extends RecyclerView.ViewHolder {
+        public TextView taskTitleView;
+        public TextView taskContentView;
+
+        public TaskViewHolder(View v) {
+            super(v);
+            taskTitleView = (TextView) itemView.findViewById(R.id.task_title);
+            taskContentView = (TextView) itemView.findViewById(R.id.task_content);
+        }
+    }
+
     private static final String TAG = "MainActivity";
+    public static final String TASKS_CHILD = "tasks";
 
     private String mUsername;
     private String mPhotoUrl;
@@ -35,9 +57,21 @@ public class MainActivity extends AppCompatActivity
 
     public static final String ANONYMOUS = "anonymous";
 
+
+    // RecyclerView instance variables
+    private RecyclerView mTaskRecyclerView;
+    private LinearLayoutManager mLinearLayoutManager;
+
+    // ProgressBar instance variables
+    private ProgressBar mProgressBar;
+
     // Firebase instance variables
     private FirebaseAuth mFirebaseAuth;
     private FirebaseUser mFirebaseUser;
+
+    private DatabaseReference mFirebaseDatabaseReference;
+    private FirebaseRecyclerAdapter<TodoTask, TaskViewHolder>
+            mFirebaseAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,10 +113,71 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
+        // Initialize Google Api Client.
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .enableAutoManage(this /* FragmentActivity */, this /* OnConnectionFailedListener */)
                 .addApi(Auth.GOOGLE_SIGN_IN_API)
                 .build();
+
+        // Initialize ProgressBar.
+        mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
+
+        // Initialize RecyclerView.
+        mTaskRecyclerView = (RecyclerView) findViewById(R.id.taskRecyclerView);
+        mLinearLayoutManager = new LinearLayoutManager(this);
+        mTaskRecyclerView.setLayoutManager(mLinearLayoutManager);
+
+        // Offset
+        final int offset = (int) (getResources().getDisplayMetrics().density);
+
+        final RecyclerView.ItemDecoration itemDecoration =
+                new RecyclerView.ItemDecoration() {
+                    @Override
+                    public void getItemOffsets(Rect outRect,
+                                               View view,
+                                               RecyclerView parent,
+                                               RecyclerView.State state) {
+                        outRect.set(offset, offset, offset, offset);
+                    }
+                };
+        mTaskRecyclerView.addItemDecoration(itemDecoration);
+
+        mFirebaseDatabaseReference = FirebaseDatabase.getInstance().getReference();
+        mFirebaseAdapter = new FirebaseRecyclerAdapter<TodoTask, TaskViewHolder>(
+                TodoTask.class,
+                R.layout.item_task,
+                TaskViewHolder.class,
+                mFirebaseDatabaseReference.child(mFirebaseUser.getUid()).child(TASKS_CHILD)) {
+
+            @Override
+            protected void populateViewHolder(TaskViewHolder viewHolder,
+                                              TodoTask todoTask, int position) {
+                mProgressBar.setVisibility(ProgressBar.INVISIBLE);
+                viewHolder.taskTitleView.setText(todoTask.getTitle());
+                viewHolder.taskContentView.setText(todoTask.getContent());
+            }
+        };
+
+        mFirebaseAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
+            @Override
+            public void onItemRangeInserted(int positionStart, int itemCount) {
+                super.onItemRangeInserted(positionStart, itemCount);
+                int taskCount = mFirebaseAdapter.getItemCount();
+                int lastVisiblePosition =
+                        mLinearLayoutManager.findLastCompletelyVisibleItemPosition();
+                // If the recycler view is initially being loaded or the
+                // user is at the bottom of the list, scroll to the bottom
+                // of the list to show the newly added message.
+                if (lastVisiblePosition == -1 ||
+                        (positionStart >= (taskCount - 1) &&
+                                lastVisiblePosition == (positionStart - 1))) {
+                    mTaskRecyclerView.scrollToPosition(positionStart);
+                }
+            }
+        });
+
+        mTaskRecyclerView.setLayoutManager(mLinearLayoutManager);
+        mTaskRecyclerView.setAdapter(mFirebaseAdapter);
     }
 
     @Override
