@@ -49,7 +49,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     private static final String TAG = "MainActivity";
-    public static final String TASKS_CHILD = "tasks";
+    private static final String TASKS_CHILD = "tasks";
 
     private String mUsername;
     private String mPhotoUrl;
@@ -122,25 +122,10 @@ public class MainActivity extends AppCompatActivity
         // Initialize ProgressBar.
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
 
-        // Initialize RecyclerView.
+        // Initialize Firebase RecyclerView
         mTaskRecyclerView = (RecyclerView) findViewById(R.id.taskRecyclerView);
         mLinearLayoutManager = new LinearLayoutManager(this);
         mTaskRecyclerView.setLayoutManager(mLinearLayoutManager);
-
-        // Offset
-        final int offset = (int) (getResources().getDisplayMetrics().density);
-
-        final RecyclerView.ItemDecoration itemDecoration =
-                new RecyclerView.ItemDecoration() {
-                    @Override
-                    public void getItemOffsets(Rect outRect,
-                                               View view,
-                                               RecyclerView parent,
-                                               RecyclerView.State state) {
-                        outRect.set(offset, offset, offset, offset);
-                    }
-                };
-        mTaskRecyclerView.addItemDecoration(itemDecoration);
 
         mFirebaseDatabaseReference = FirebaseDatabase.getInstance().getReference();
         mFirebaseAdapter = new FirebaseRecyclerAdapter<TodoTask, TaskViewHolder>(
