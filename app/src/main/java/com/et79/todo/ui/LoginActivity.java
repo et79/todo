@@ -1,10 +1,12 @@
-package com.et79.todo;
+package com.et79.todo.ui;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
@@ -32,6 +34,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.et79.todo.R;
 import com.google.android.gms.auth.api.Auth;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
@@ -55,7 +58,7 @@ import static android.Manifest.permission.READ_CONTACTS;
  * A login screen that offers login via email/password.
  */
 public class LoginActivity extends AppCompatActivity implements
-        GoogleApiClient.OnConnectionFailedListener, LoaderCallbacks<Cursor> {
+        GoogleApiClient.OnConnectionFailedListener, LoaderCallbacks<Cursor>, View.OnClickListener {
 
     private static final String TAG = "LoginActivity";
     private static final int RC_SIGN_IN = 9001;
@@ -82,6 +85,9 @@ public class LoginActivity extends AppCompatActivity implements
     private EditText mPasswordView;
     private View mProgressView;
     private View mLoginFormView;
+    Button mEmailSignUpButton;
+    Button mEmailSignInButton;
+    SignInButton mGoogleSignInButton;
 
 
     private GoogleApiClient mGoogleApiClient;
@@ -93,11 +99,18 @@ public class LoginActivity extends AppCompatActivity implements
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+
         // Set up the login form.
         mEmailView = (AutoCompleteTextView) findViewById(R.id.email);
+        mLoginFormView = findViewById(R.id.login_form);
+        mPasswordView = (EditText) findViewById(R.id.password);
+        mProgressView = findViewById(R.id.login_progress);
+        mEmailSignUpButton = (Button) findViewById(R.id.email_sign_up_button);
+        mEmailSignInButton = (Button) findViewById(R.id.email_sign_in_button);
+        mGoogleSignInButton = (SignInButton) findViewById(R.id.google_sign_in_button);
+
         populateAutoComplete();
 
-        mPasswordView = (EditText) findViewById(R.id.password);
         mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView textView, int id, KeyEvent keyEvent) {
@@ -109,29 +122,15 @@ public class LoginActivity extends AppCompatActivity implements
             }
         });
 
-        Button mEmailSignInButton = (Button) findViewById(R.id.email_sign_in_button);
+
+        // Set click listeners
+        mGoogleSignInButton.setOnClickListener(this);
         mEmailSignInButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
                 attemptLogin();
             }
         });
-
-        // TODO: メールによるログイン
-        mEmailView.setEnabled(false);
-        mPasswordView.setEnabled(false);
-        mEmailSignInButton.setEnabled(false);
-
-        SignInButton mGoogleSignInButton = (SignInButton) findViewById(R.id.sign_in_button);
-        mGoogleSignInButton.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                        signIn();
-            }
-        });
-
-        mLoginFormView = findViewById(R.id.login_form);
-        mProgressView = findViewById(R.id.login_progress);
 
         // Configure Google Sign In
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -147,6 +146,53 @@ public class LoginActivity extends AppCompatActivity implements
         mFirebaseAuth = FirebaseAuth.getInstance();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        if( !isOnline() ) {
+            Log.d(TAG, "Network Error.");
+            Toast.makeText(this, getString(R.string.error_netwrok), Toast.LENGTH_LONG).show();
+
+            enableControls(false);
+            return;
+        }
+        else
+            enableControls(true);
+    }
+
+    private boolean isOnline() {
+        ConnectivityManager connMgr = (ConnectivityManager)
+                this.getSystemService(this.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
+        return (networkInfo != null && networkInfo.isConnected());
+    }
+
+    private void enableControls( boolean isEnable ) {
+
+        mEmailView.setEnabled(isEnable);
+        mLoginFormView.setEnabled(isEnable);
+        mPasswordView.setEnabled(isEnable);
+        mProgressView.setEnabled(isEnable);
+        mEmailSignUpButton.setEnabled(isEnable);
+        mEmailSignInButton.setEnabled(isEnable);
+        mGoogleSignInButton.setEnabled(isEnable);
+    }
+
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.google_sign_in_button:
+                signIn();
+                break;
+            case R.id.email_sign_up_button:
+                attemptLogin(); // TODO
+                break;
+            case R.id.email_sign_in_button:
+                attemptLogin(); // TODO
+                break;
+        }
+    }
 
     private void signIn() {
         Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);

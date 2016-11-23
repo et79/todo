@@ -1,15 +1,12 @@
-package com.et79.todo;
+package com.et79.todo.ui;
 
 import android.content.Intent;
-import android.graphics.Canvas;
-import android.graphics.Rect;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.helper.ItemTouchHelper;
 import android.util.Log;
 import android.view.View;
 import android.support.design.widget.NavigationView;
@@ -21,10 +18,13 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ProgressBar;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import com.firebase.ui.database.FirebaseRecyclerAdapter;
+import com.et79.todo.R;
+import com.et79.todo.models.TodoTask;
+import com.et79.todo.adapters.FirebaseTaskListAdapter;
+import com.et79.todo.util.OnStartDragListener;
+import com.et79.todo.util.SimpleItemTouchHelperCallback;
 import com.google.android.gms.auth.api.Auth;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -35,20 +35,12 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
 public class MainActivity extends AppCompatActivity
-        implements NavigationView.OnNavigationItemSelectedListener, GoogleApiClient.OnConnectionFailedListener{
-
-    public static class TaskViewHolder extends RecyclerView.ViewHolder {
-        public TextView taskTitleView;
-        public TextView taskContentView;
-
-        public TaskViewHolder(View v) {
-            super(v);
-            taskTitleView = (TextView) itemView.findViewById(R.id.task_title);
-            taskContentView = (TextView) itemView.findViewById(R.id.task_content);
-        }
-    }
+        implements NavigationView.OnNavigationItemSelectedListener,
+        GoogleApiClient.OnConnectionFailedListener,
+        OnStartDragListener {
 
     private static final String TAG = "MainActivity";
+    private static final int RESULT_TASKEDITACTIVITY = 1001;
     private static final String TASKS_CHILD = "tasks";
 
     private String mUsername;
@@ -60,7 +52,6 @@ public class MainActivity extends AppCompatActivity
 
     // RecyclerView instance variables
     private RecyclerView mTaskRecyclerView;
-    private LinearLayoutManager mLinearLayoutManager;
 
     // ProgressBar instance variables
     private ProgressBar mProgressBar;
@@ -70,22 +61,26 @@ public class MainActivity extends AppCompatActivity
     private FirebaseUser mFirebaseUser;
 
     private DatabaseReference mFirebaseDatabaseReference;
-    private FirebaseRecyclerAdapter<TodoTask, TaskViewHolder>
-            mFirebaseAdapter;
+    private FirebaseTaskListAdapter mFirebaseAdapter;
+
+    private ItemTouchHelper mItemTouchHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        mTaskRecyclerView = (RecyclerView) findViewById(R.id.taskRecyclerView);
         setSupportActionBar(toolbar);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
+//                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
+//                        .setAction("Action", null).show();
+
+                startTaskEditActivity(new TodoTask());
             }
         });
 
@@ -98,9 +93,25 @@ public class MainActivity extends AppCompatActivity
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
+        // Initialize ProgressBar.
+        mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
+
+        // Initialize Google Api Client.
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .enableAutoManage(this /* FragmentActivity */, this /* OnConnectionFailedListener */)
+                .addApi(Auth.GOOGLE_SIGN_IN_API)
+                .build();
+
+        setUpFirebaseAdapter();
+
+    }
+
+    private void setUpFirebaseAdapter() {
+
         // Initialize Firebase Auth
         mFirebaseAuth = FirebaseAuth.getInstance();
         mFirebaseUser = mFirebaseAuth.getCurrentUser();
+
         if (mFirebaseUser == null) {
             // Not signed in, launch the Sign In activity
             startActivity(new Intent(this, LoginActivity.class));
@@ -113,56 +124,24 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
-        // Initialize Google Api Client.
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .enableAutoManage(this /* FragmentActivity */, this /* OnConnectionFailedListener */)
-                .addApi(Auth.GOOGLE_SIGN_IN_API)
-                .build();
+        mFirebaseDatabaseReference = FirebaseDatabase
+                .getInstance()
+                .getReference(mFirebaseUser.getUid())
+                .child(TASKS_CHILD);
 
-        // Initialize ProgressBar.
-        mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
-
-        // Initialize Firebase RecyclerView
-        mTaskRecyclerView = (RecyclerView) findViewById(R.id.taskRecyclerView);
-        mLinearLayoutManager = new LinearLayoutManager(this);
-        mTaskRecyclerView.setLayoutManager(mLinearLayoutManager);
-
-        mFirebaseDatabaseReference = FirebaseDatabase.getInstance().getReference();
-        mFirebaseAdapter = new FirebaseRecyclerAdapter<TodoTask, TaskViewHolder>(
+        mFirebaseAdapter = new FirebaseTaskListAdapter(
                 TodoTask.class,
                 R.layout.item_task,
-                TaskViewHolder.class,
-                mFirebaseDatabaseReference.child(mFirebaseUser.getUid()).child(TASKS_CHILD)) {
+                FirebaseTaskViewHolder.class,
+                mFirebaseDatabaseReference,
+                this,this);
 
-            @Override
-            protected void populateViewHolder(TaskViewHolder viewHolder,
-                                              TodoTask todoTask, int position) {
-                mProgressBar.setVisibility(ProgressBar.INVISIBLE);
-                viewHolder.taskTitleView.setText(todoTask.getTitle());
-                viewHolder.taskContentView.setText(todoTask.getContent());
-            }
-        };
-
-        mFirebaseAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
-            @Override
-            public void onItemRangeInserted(int positionStart, int itemCount) {
-                super.onItemRangeInserted(positionStart, itemCount);
-                int taskCount = mFirebaseAdapter.getItemCount();
-                int lastVisiblePosition =
-                        mLinearLayoutManager.findLastCompletelyVisibleItemPosition();
-                // If the recycler view is initially being loaded or the
-                // user is at the bottom of the list, scroll to the bottom
-                // of the list to show the newly added message.
-                if (lastVisiblePosition == -1 ||
-                        (positionStart >= (taskCount - 1) &&
-                                lastVisiblePosition == (positionStart - 1))) {
-                    mTaskRecyclerView.scrollToPosition(positionStart);
-                }
-            }
-        });
-
-        mTaskRecyclerView.setLayoutManager(mLinearLayoutManager);
+        mTaskRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         mTaskRecyclerView.setAdapter(mFirebaseAdapter);
+
+        ItemTouchHelper.Callback callback = new SimpleItemTouchHelperCallback(mFirebaseAdapter);
+        mItemTouchHelper = new ItemTouchHelper(callback);
+        mItemTouchHelper.attachToRecyclerView(mTaskRecyclerView);
     }
 
     @Override
@@ -172,6 +151,41 @@ public class MainActivity extends AppCompatActivity
             drawer.closeDrawer(GravityCompat.START);
         } else {
             super.onBackPressed();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mFirebaseAdapter.cleanup();
+    }
+
+    @Override
+    public void onStartDrag(RecyclerView.ViewHolder viewHolder) {
+        mItemTouchHelper.startDrag(viewHolder);
+    }
+
+    public boolean startTaskEditActivity(TodoTask task) {
+
+        Intent intent = new Intent(getApplication(), TaskEditActivity.class);
+        intent.putExtra("task", task);
+
+        int requestCode = RESULT_TASKEDITACTIVITY;
+        startActivityForResult( intent, requestCode );
+
+        return true;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if(resultCode == RESULT_OK && requestCode == RESULT_TASKEDITACTIVITY && data != null) {
+            TodoTask task = (TodoTask)data.getSerializableExtra("task");
+            if( task.getPosition() == -1 )
+                mFirebaseDatabaseReference.push().setValue(task);
+            else
+                mFirebaseAdapter.getRef(task.getPosition()).setValue(task);
         }
     }
 
@@ -237,5 +251,9 @@ public class MainActivity extends AppCompatActivity
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
+     }
+
+    public void progressBarVisible(int visible) {
+        mProgressBar.setVisibility(visible);
     }
 }
