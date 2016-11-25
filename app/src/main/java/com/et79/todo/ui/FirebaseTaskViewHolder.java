@@ -1,7 +1,9 @@
 package com.et79.todo.ui;
 
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.et79.todo.R;
@@ -12,29 +14,36 @@ import com.et79.todo.models.TodoTask;
  */
 
 public class FirebaseTaskViewHolder extends RecyclerView.ViewHolder {
-    public TextView taskTitleView;
-    public TextView taskContentView;
-    private TodoTask mTodoTask;
+
+    private static final String TAG = "FirebaseTaskViewHolder";
+
+    private TextView mTaskTitleView;
+    private TextView mTaskContentView;
+    private TodoTask mTask;
+    private View mView;
+
+    public ImageView mTaskReorder;
 
     public FirebaseTaskViewHolder(View v) {
         super(v);
-        taskTitleView = (TextView) itemView.findViewById(R.id.task_title);
-        taskContentView = (TextView) itemView.findViewById(R.id.task_content);
+        mView = v;
     }
 
     public void bindTodoTask(TodoTask task) {
+        Log.d(TAG, "bindTodoTask");
 
-        mTodoTask = task;
-        mTodoTask.setPosition(getAdapterPosition());
+        mTask = task;
+        mTaskReorder = (ImageView) mView.findViewById(R.id.task_reorder);
 
-        taskTitleView = (TextView) itemView.findViewById(R.id.task_title);
-        taskContentView = (TextView) itemView.findViewById(R.id.task_content);
+        mTaskTitleView = (TextView) mView.findViewById(R.id.task_title);
+        mTaskTitleView.setText(task.getTitle());
 
-        taskTitleView.setText(task.getTitle());
-        taskContentView.setText(task.getContent());
+        mTaskContentView = (TextView) mView.findViewById(R.id.task_content);
+        mTaskContentView.setText(task.getContent());
     }
 
     public TodoTask getTodoTask() {
-        return mTodoTask;
+        Log.d(TAG, "getTodoTask");
+        return mTask;
     }
 }

@@ -3,11 +3,8 @@ package com.et79.todo.ui;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
@@ -26,7 +23,6 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.view.inputmethod.EditorInfo;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -63,6 +59,7 @@ public class LoginActivity extends AppCompatActivity implements
         GoogleApiClient.OnConnectionFailedListener, LoaderCallbacks<Cursor>, View.OnClickListener {
 
     private static final String TAG = "LoginActivity";
+
     private static final int RC_SIGN_IN = 9001;
 
     /**
@@ -71,16 +68,9 @@ public class LoginActivity extends AppCompatActivity implements
     private static final int REQUEST_READ_CONTACTS = 0;
 
     /**
-     * A dummy authentication store containing known user names and passwords.
-     * TODO: remove after connecting to a real authentication system.
-     */
-    private static final String[] DUMMY_CREDENTIALS = new String[]{
-            "foo@example.com:hello", "bar@example.com:world"
-    };
-    /**
      * Keep track of the login task to ensure we can cancel it if requested.
      */
-    private UserLoginTask mAuthTask = null;
+
     private boolean mIsSignIn = false;
 
     // UI references.
@@ -92,7 +82,6 @@ public class LoginActivity extends AppCompatActivity implements
     Button mEmailSignInButton;
     SignInButton mGoogleSignInButton;
 
-
     private GoogleApiClient mGoogleApiClient;
 
     // Firebase instance variables
@@ -100,6 +89,8 @@ public class LoginActivity extends AppCompatActivity implements
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d(TAG, "onCreate");
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
@@ -125,7 +116,6 @@ public class LoginActivity extends AppCompatActivity implements
             }
         });
 
-
         // Set click listeners
         mGoogleSignInButton.setOnClickListener(this);
         mEmailSignUpButton.setOnClickListener(this);
@@ -147,17 +137,16 @@ public class LoginActivity extends AppCompatActivity implements
 
     @Override
     protected void onResume() {
+        Log.d(TAG, "onResume");
         super.onResume();
 
-        if( !isOnline(this) ) {
-            Log.d(TAG, "Network Error.");
-            Toast.makeText(this, getString(R.string.error_netwrok), Toast.LENGTH_LONG).show();
-
-            enableControls(false);
-            return;
-        }
-        else
+        if( isOnline(this) ) {
             enableControls(true);
+        } else {
+            Log.d(TAG, "Network Error.");
+            Toast.makeText(this, getString(R.string.error_network), Toast.LENGTH_LONG).show();
+            enableControls(false);
+        }
     }
 
     private void enableControls( boolean isEnable ) {
@@ -173,22 +162,26 @@ public class LoginActivity extends AppCompatActivity implements
 
     @Override
     public void onClick(View v) {
+        Log.d(TAG, "onClick");
+
         switch (v.getId()) {
             case R.id.google_sign_in_button:
-                signIn();
+                signInWithGoogle();
                 break;
             case R.id.email_sign_up_button:
                 mIsSignIn = false;
-                attemptLogin(); // TODO
+                attemptLogin();
                 break;
             case R.id.email_sign_in_button:
                 mIsSignIn = true;
-                attemptLogin(); // TODO
+                attemptLogin();
                 break;
         }
     }
 
-    private void signIn() {
+    private void signInWithGoogle() {
+        Log.d(TAG, "signInWithGoogle");
+
         Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
         startActivityForResult(signInIntent, RC_SIGN_IN);
     }
@@ -218,20 +211,50 @@ public class LoginActivity extends AppCompatActivity implements
                     @Override
                     public void onComplete(@NonNull Task<AuthResult> task) {
                         Log.d(TAG, "signInWithCredential:onComplete:" + task.isSuccessful());
-
-                        // If sign in fails, display a message to the user. If sign in succeeds
-                        // the auth state listener will be notified and logic to handle the
-                        // signed in user can be handled in the listener.
-                        if (!task.isSuccessful()) {
-                            Log.w(TAG, "signInWithCredential", task.getException());
-                            Toast.makeText(LoginActivity.this, "Authentication failed.",
-                                    Toast.LENGTH_SHORT).show();
-                        } else {
-                            startActivity(new Intent(LoginActivity.this, MainActivity.class));
-                            finish();
-                        }
+                        postSignIn(task);
                     }
                 });
+    }
+
+    private void signUpWithEmail(String email, String password) {
+
+        mFirebaseAuth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        Log.d(TAG, "createUserWithEmail:onComplete:" + task.isSuccessful());
+                        postSignIn(task);
+                    }
+                });
+    }
+
+    private void signInWithEmail(String email, String password) {
+
+        mFirebaseAuth.signInWithEmailAndPassword(email, password)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        Log.d(TAG, "signInWithEmail:onComplete" + task.isSuccessful());
+                        postSignIn(task);
+                    }
+                });
+    }
+
+    private void postSignIn(Task<AuthResult> task) {
+
+        showProgress(false);
+
+        // If sign in fails, display a message to the user. If sign in succeeds
+        // the auth state listener will be notified and logic to handle the
+        // signed in user can be handled in the listener.
+        if (!task.isSuccessful()) {
+            Log.w(TAG, "signInWithCredential", task.getException());
+            Toast.makeText(LoginActivity.this, "Authentication failed.",
+                    Toast.LENGTH_SHORT).show();
+        } else {
+            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+            finish();
+        }
     }
 
     private void populateAutoComplete() {
@@ -284,9 +307,6 @@ public class LoginActivity extends AppCompatActivity implements
      * errors are presented and no actual login attempt is made.
      */
     private void attemptLogin() {
-        if (mAuthTask != null) {
-            return;
-        }
 
         // Reset errors.
         mEmailView.setError(null);
@@ -325,8 +345,6 @@ public class LoginActivity extends AppCompatActivity implements
             // Show a progress spinner, and kick off a background task to
             // perform the user login attempt.
             showProgress(true);
-//            mAuthTask = new UserLoginTask(email, password);
-//            mAuthTask.execute((Void) null);
 
             // TODO: register the new account here.
             if (mIsSignIn) {
@@ -445,118 +463,5 @@ public class LoginActivity extends AppCompatActivity implements
         int ADDRESS = 0;
         int IS_PRIMARY = 1;
     }
-
-    /**
-     * Represents an asynchronous login/registration task used to authenticate
-     * the user.
-     */
-    public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
-
-        private final String mEmail;
-        private final String mPassword;
-
-        UserLoginTask(String email, String password) {
-            mEmail = email;
-            mPassword = password;
-        }
-
-        @Override
-        protected Boolean doInBackground(Void... params) {
-            // TODO: attempt authentication against a network service.
-
-//            try {
-//                // Simulate network access.
-//                Thread.sleep(2000);
-//            } catch (InterruptedException e) {
-//                return false;
-//            }
-
-//            for (String credential : DUMMY_CREDENTIALS) {
-//                String[] pieces = credential.split(":");
-//                if (pieces[0].equals(mEmail)) {
-//                    // Account exists, return true if the password matches.
-//                    return pieces[1].equals(mPassword);
-//                }
-//            }
-//
-//            // TODO: register the new account here.
-//            if (mIsSignIn) {
-//                signInWithEmail(mEmail, mPassword);
-//            }
-//            else {
-//                signUpWithEmail(mEmail, mPassword);
-//            }
-
-            return true;
-        }
-
-        @Override
-        protected void onPostExecute(final Boolean success) {
-            mAuthTask = null;
-            showProgress(false);
-
-            if (success) {
-                finish();
-            } else {
-                mPasswordView.setError(getString(R.string.error_incorrect_password));
-                mPasswordView.requestFocus();
-            }
-        }
-
-        @Override
-        protected void onCancelled() {
-            mAuthTask = null;
-            showProgress(false);
-        }
-    }
-
-    private void signUpWithEmail(String email, String password) {
-
-        mFirebaseAuth.createUserWithEmailAndPassword(email, password)
-                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull Task<AuthResult> task) {
-                        Log.d(TAG, "createUserWithEmail:onComplete:" + task.isSuccessful());
-
-                        showProgress(false);
-
-                        // If sign in fails, display a message to the user. If sign in succeeds
-                        // the auth state listener will be notified and logic to handle the
-                        // signed in user can be handled in the listener.
-                        if (!task.isSuccessful()) {
-                            Toast.makeText(LoginActivity.this, task.getException().getMessage(),
-                                    Toast.LENGTH_SHORT).show();
-                        } else {
-                            startActivity(new Intent(LoginActivity.this, MainActivity.class));
-                            finish();
-                        }
-                    }
-                });
-    }
-
-    private void signInWithEmail(String email, String password) {
-
-        mFirebaseAuth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull Task<AuthResult> task) {
-                        Log.d(TAG, "signInWithEmail:onComplete" + task.isSuccessful());
-
-                        showProgress(false);
-
-                        // If sign in fails, display a message to the user. If sign in succeeds
-                        // the auth state listener will be notified and logic to handle the
-                        // signed in user can be handled in the listener.
-                        if (!task.isSuccessful()) {
-                            Toast.makeText(LoginActivity.this, task.getException().getMessage(),
-                                    Toast.LENGTH_SHORT).show();
-                        } else {
-                            startActivity(new Intent(LoginActivity.this, MainActivity.class));
-                            finish();
-                        }
-                    }
-                });
-    }
-
 }
 

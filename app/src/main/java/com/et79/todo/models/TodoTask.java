@@ -1,6 +1,6 @@
 package com.et79.todo.models;
 
-import com.et79.todo.ui.TaskEditActivity;
+import com.et79.todo.Constants;
 
 import java.io.Serializable;
 
@@ -10,59 +10,61 @@ import java.io.Serializable;
 
 public class TodoTask implements Serializable {
 
-    private String dateStr = "";
-    private String title = "";
-    private String content = "";
-    private String photoUrl = "";
-    private int position = -1;
+    private static final String TAG = "TodoTask";
+
+    private String mDateStr;
+    private String mTitle;
+    private String mContent;
+    private String mPhotoUrl;
+    private int mIndex = Constants.NUM_UNDEFINED;
 
     public TodoTask() {}
 
-    public TodoTask(String dateStr, String title, String content, String photoUrl, int position){
-        this.dateStr = dateStr;
-        this.title = title;
-        this.content = content;
-        this.photoUrl = photoUrl;
-        this.position = position;
+    public TodoTask(String dateStr, String title, String content, String photoUrl, int index){
+        this.mDateStr = dateStr;
+        this.mTitle = title;
+        this.mContent = content;
+        this.mPhotoUrl = photoUrl;
+        this.mIndex = index;
     }
 
     public String getDateStr() {
-        return dateStr;
+        return mDateStr;
     }
 
     public String getTitle() {
-        return title;
+        return mTitle;
     }
 
     public String getContent() {
-        return content;
+        return mContent;
     }
 
     public String getPhotoUrl() {
-        return photoUrl;
+        return mPhotoUrl;
     }
 
-    public int getPosition() {
-        return position;
+    public int getIndex() {
+        return mIndex;
     }
 
-    public void setDateStr(String dateStr) {
-        this.dateStr = dateStr;
+    public void setDateStr(String mDateStr) {
+        this.mDateStr = mDateStr;
     }
 
     public void setTitle(String title) {
-        this.title = title;
+        this.mTitle = title;
     }
 
     public void setContent(String content) {
-        this.content = content;
+        this.mContent = content;
     }
 
     public void setPhotoUrl(String photoUrl) {
-        this.photoUrl = photoUrl;
+        this.mPhotoUrl = photoUrl;
     }
 
-    public void setPosition(int position) {
-        this.position = position;
+    public void setIndex(int index) {
+        this.mIndex = index;
     }
 }

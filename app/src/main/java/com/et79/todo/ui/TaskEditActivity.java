@@ -4,24 +4,31 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.MenuItem;
 import android.widget.EditText;
 
+import com.et79.todo.Constants;
 import com.et79.todo.R;
 import com.et79.todo.models.TodoTask;
 import com.et79.todo.util.util;
 
 import java.util.Date;
 
+
 public class TaskEditActivity extends AppCompatActivity {
+
+    private static final String TAG = "TaskEditActivity";
 
     private EditText mTaskTitleView;
     private EditText mTaskContentView;
-    private int mPosition;
-    TodoTask orgTask;
+    private int mPosition = Constants.NUM_UNDEFINED;
+    private TodoTask mOrgTask;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d(TAG, "onCreate");
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_task_edit);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -32,61 +39,68 @@ public class TaskEditActivity extends AppCompatActivity {
 
         Intent intent = getIntent();
         if( intent != null ) {
-            orgTask = (TodoTask)intent.getSerializableExtra("task");
-            mTaskTitleView = (EditText) findViewById(R.id.task_title);
-            mTaskContentView = (EditText) findViewById(R.id.task_content);
-            setTask(orgTask);
+            mOrgTask = (TodoTask)intent.getSerializableExtra(Constants.STR_TASK);
+            mPosition = intent.getIntExtra(Constants.STR_POSITION, Constants.NUM_UNDEFINED);
         }
+
+        setUpTask();
+    }
+
+    private void setUpTask() {
+        Log.d(TAG, "setUpTask");
+
+        mTaskTitleView = (EditText) findViewById(R.id.task_title);
+        mTaskTitleView.setText(mOrgTask.getTitle());
+
+        mTaskContentView = (EditText) findViewById(R.id.task_content);
+        mTaskContentView.setText(mOrgTask.getContent());
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
+        Log.d(TAG, "onOptionsItemSelected");
 
-        // いつものUPナビゲーションの処理
-        switch (id) {
+        switch (item.getItemId()) {
             case android.R.id.home:
-                if (isEdit()) {
-                    setEditResult();
-                }
+                setEditResult();
                 finish();
                 return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
-    private void setTask( TodoTask task ) {
-        if( task != null && mTaskContentView != null && mTaskTitleView != null ) {
-            mTaskTitleView.setText(task.getTitle());
-            mTaskContentView.setText(task.getContent());
-            mPosition = task.getPosition();
-        }
-    }
+    @Override
+    public void onBackPressed() {
+        Log.d(TAG, "onBackPressed");
 
-    private boolean isEdit() {
-        if (!mTaskTitleView.getText().toString().equals(orgTask.getTitle()) ||
-                !mTaskContentView.getText().toString().equals(orgTask.getContent()))
-            return true;
-
-        return false;
+        setEditResult();
+        super.onBackPressed();
     }
 
     private void setEditResult() {
+        Log.d(TAG, "setEditResult");
+
+        if( !isEdit() )
+            return;
 
         Intent intent = new Intent();
-        intent.putExtra ("task", new TodoTask(util.DateToString(new Date()),
+        intent.putExtra (Constants.STR_TASK, new TodoTask(util.DateToString(new Date()),
                 mTaskTitleView.getText().toString(),
                 mTaskContentView.getText().toString(),
                 "",
-                mPosition) );
+                mOrgTask.getIndex()) );
+        intent.putExtra(Constants.STR_POSITION, mPosition);
+
         setResult(RESULT_OK, intent);
     }
 
-    @Override
-    public void onBackPressed() {
+    private boolean isEdit() {
+        Log.d(TAG, "isEdit");
 
-        if (isEdit()) setEditResult();
+        if (!mTaskTitleView.getText().toString().equals(mOrgTask.getTitle()) ||
+                !mTaskContentView.getText().toString().equals(mOrgTask.getContent()))
+            return true;
 
-        super.onBackPressed();
+        return false;
     }
 }

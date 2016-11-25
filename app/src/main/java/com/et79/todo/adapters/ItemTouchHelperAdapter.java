@@ -1,4 +1,4 @@
-package com.et79.todo.util;
+package com.et79.todo.adapters;
 
 /**
  * Created by eisuke on 2016/11/22.

@@ -1,4 +1,4 @@
-package com.et79.todo.util;
+package com.et79.todo.adapters;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -8,16 +8,19 @@ import android.graphics.Paint;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.helper.ItemTouchHelper;
-import android.support.v7.widget.helper.ItemTouchHelper.Callback;
 import android.view.View;
 
 import com.et79.todo.R;
+import com.et79.todo.adapters.ItemTouchHelperAdapter;
 
 /**
  * Created by eisuke on 2016/11/22.
  */
 
 public class SimpleItemTouchHelperCallback extends ItemTouchHelper.Callback {
+
+    private static final String TAG = "SimpleItemTouchHelperCallback";
+
     private final ItemTouchHelperAdapter mAdapter;
 
     //  This constructor takes an ItemTouchHelperAdapter parameter. When implemented in
@@ -49,9 +52,7 @@ public class SimpleItemTouchHelperCallback extends ItemTouchHelper.Callback {
 
     @Override
     public int getMovementFlags(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
-//        final int dragFlags = ItemTouchHelper.UP | ItemTouchHelper.DOWN;
-        final int dragFlags = 0;
-//        final int swipeFlags = ItemTouchHelper.START | ItemTouchHelper.END;
+        final int dragFlags = ItemTouchHelper.UP | ItemTouchHelper.DOWN;
         final int swipeFlags = ItemTouchHelper.RIGHT;
         return makeMovementFlags(dragFlags, swipeFlags);
     }
@@ -63,16 +64,12 @@ public class SimpleItemTouchHelperCallback extends ItemTouchHelper.Callback {
     @Override
     public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder source,
                           RecyclerView.ViewHolder target) {
-//        if (source.getItemViewType() != target.getItemViewType()) {
-//            return false;
-//        }
-//        mAdapter.onItemMove(source.getAdapterPosition(), target.getAdapterPosition());
-//        return true;
-
-        return false;
+        if (source.getItemViewType() != target.getItemViewType()) {
+            return false;
+        }
+        mAdapter.onItemMove(source.getAdapterPosition(), target.getAdapterPosition());
+        return true;
     }
-
-
 
     //  The method below notifies the adapter that an item was dismissed.
     //  This triggers the onItemDismiss override in our Firebase adapter
@@ -100,20 +97,12 @@ public class SimpleItemTouchHelperCallback extends ItemTouchHelper.Callback {
 
                 // Set the image icon for Right swipe
                 Resources res = itemView.getContext().getResources();
-                Bitmap icon = BitmapFactory.decodeResource(res, R.drawable.ic_delete_forever_white_36dp);
+                Bitmap icon = BitmapFactory.decodeResource(res, R.drawable.ic_done_white_36dp);
                 c.drawBitmap(icon,
                         (float) itemView.getLeft() + res.getDimension(R.dimen.activity_horizontal_margin)/2,
                         (float) itemView.getTop() + ((float) itemView.getBottom() - (float) itemView.getTop() - icon.getHeight())/2,
                         p);
             }
-//            else {
-//              /* Set your color for negative displacement */
-//                p.setARGB(255, 0, 255, 0);
-//
-//                // Draw Rect with varying left side, equal to the item's right side plus negative displacement dX
-//                c.drawRect((float) itemView.getRight() + dX, (float) itemView.getTop(),
-//                        (float) itemView.getRight(), (float) itemView.getBottom(), p);
-//            }
         }
 
         super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);

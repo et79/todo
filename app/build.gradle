@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'com.neenbedankt.android-apt'
 
 android {
     compileSdkVersion 25
@@ -40,6 +41,9 @@ dependencies {
 
     // Firebase UI
     compile 'com.firebaseui:firebase-ui-database:0.4.0'
+
+    compile 'org.parceler:parceler-api:1.1.6'
+    apt 'org.parceler:parceler:1.1.6'
 
     testCompile 'junit:junit:4.12'
 }

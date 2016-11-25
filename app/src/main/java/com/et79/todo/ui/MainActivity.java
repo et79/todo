@@ -18,17 +18,17 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
+import com.et79.todo.Constants;
 import com.et79.todo.R;
 import com.et79.todo.models.TodoTask;
 import com.et79.todo.adapters.FirebaseTaskListAdapter;
-import com.et79.todo.util.OnStartDragListener;
-import com.et79.todo.util.SimpleItemTouchHelperCallback;
+import com.et79.todo.adapters.FirebaseTaskListEventListener;
+import com.et79.todo.adapters.SimpleItemTouchHelperCallback;
 import com.google.android.gms.auth.api.Auth;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -37,31 +37,23 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.Query;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener,
         GoogleApiClient.OnConnectionFailedListener,
-        OnStartDragListener {
+        FirebaseTaskListEventListener {
 
     private static final String TAG = "MainActivity";
-    private static final int RESULT_TASKEDITACTIVITY = 1001;
-    private static final String TASKS_CHILD = "tasks";
 
-    private String mUsername = ANONYMOUS;
-    private String mUserEmail = "";
-    private String mPhotoUrl;
     private GoogleApiClient mGoogleApiClient;
-
-    public static final String ANONYMOUS = "anonymous";
-
-    private CircleImageView mNavheaderImage;
-    private TextView mNavheaderName;
-    private TextView mNavheaderEmail;
 
     // RecyclerView instance variables
     private RecyclerView mTaskRecyclerView;
+    private FirebaseTaskListAdapter mFirebaseAdapter;
+    private ItemTouchHelper mItemTouchHelper;
 
     // ProgressBar instance variables
     private ProgressBar mProgressBar;
@@ -70,15 +62,14 @@ public class MainActivity extends AppCompatActivity
     private FirebaseAuth mFirebaseAuth;
     private FirebaseUser mFirebaseUser;
 
-    private DatabaseReference mFirebaseDatabaseReference;
-    private FirebaseTaskListAdapter mFirebaseAdapter;
-
-    private ItemTouchHelper mItemTouchHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d(TAG, "onCreate");
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
         mTaskRecyclerView = (RecyclerView) findViewById(R.id.taskRecyclerView);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -88,10 +79,12 @@ public class MainActivity extends AppCompatActivity
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-//                        .setAction("Action", null).show();
 
-                startTaskEditActivity(new TodoTask());
+                // 新しい要素を増やす前に、並び順をFirebase側で覚えておく
+                // パフォーマンス的に良くないきもする。。いい方法があれば変える。
+                mFirebaseAdapter.setIndexInFirebase();
+
+                startTaskEditActivity(new TodoTask(), Constants.NUM_UNDEFINED);
             }
         });
 
@@ -100,15 +93,6 @@ public class MainActivity extends AppCompatActivity
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
         drawer.setDrawerListener(toggle);
         toggle.syncState();
-
-        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
-        navigationView.setNavigationItemSelectedListener(this);
-
-        View navHeaderView= navigationView.inflateHeaderView(R.layout.nav_header_main);
-
-        mNavheaderImage = (CircleImageView) navHeaderView.findViewById(R.id.nav_header_image);
-        mNavheaderName = (TextView) navHeaderView.findViewById(R.id.nav_header_name);
-        mNavheaderEmail = (TextView) navHeaderView.findViewById(R.id.nav_header_email);
 
         // Initialize ProgressBar.
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
@@ -119,12 +103,13 @@ public class MainActivity extends AppCompatActivity
                 .addApi(Auth.GOOGLE_SIGN_IN_API)
                 .build();
 
+        setUpFirebaseAuth();
         setUpFirebaseAdapter();
-        setNavHeader(mPhotoUrl, mUsername, mUserEmail);
-
+        setNavHeader();
     }
 
-    private void setUpFirebaseAdapter() {
+    private void setUpFirebaseAuth() {
+        Log.d(TAG, "setUpFirebaseAuth");
 
         // Initialize Firebase Auth
         mFirebaseAuth = FirebaseAuth.getInstance();
@@ -134,27 +119,25 @@ public class MainActivity extends AppCompatActivity
             // Not signed in, launch the Sign In activity
             startActivity(new Intent(this, LoginActivity.class));
             finish();
-            return;
-        } else {
-            mUsername = mFirebaseUser.getDisplayName();
-            mUserEmail = mFirebaseUser.getEmail();
-            if (mFirebaseUser.getPhotoUrl() != null) {
-                mPhotoUrl = mFirebaseUser.getPhotoUrl().toString();
-            }
         }
+    }
 
-        mFirebaseDatabaseReference = FirebaseDatabase
-                .getInstance()
+    private void setUpFirebaseAdapter() {
+        Log.d(TAG, "setUpFirebaseAdapter");
+
+        Query query = FirebaseDatabase.getInstance()
                 .getReference(mFirebaseUser.getUid())
-                .child(TASKS_CHILD);
+                .child(Constants.FIREBASE_DB_TASKS_CHILD)
+                .orderByChild(Constants.FIREBASE_QUERY_INDEX);
 
         mFirebaseAdapter = new FirebaseTaskListAdapter(
                 TodoTask.class,
                 R.layout.item_task,
                 FirebaseTaskViewHolder.class,
-                mFirebaseDatabaseReference,
+                query,
                 this,this);
 
+        mTaskRecyclerView.setHasFixedSize(true);
         mTaskRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         mTaskRecyclerView.setAdapter(mFirebaseAdapter);
 
@@ -163,27 +146,43 @@ public class MainActivity extends AppCompatActivity
         mItemTouchHelper.attachToRecyclerView(mTaskRecyclerView);
     }
 
-    public void setNavHeader(String photoUrl, String name, String email) {
+    /**
+     * NavigationView の設定
+     */
+    public void setNavHeader() {
+        Log.d(TAG, "setNavHeader");
 
-        // Image
-        if (photoUrl == null || photoUrl.equals("")) {
-            mNavheaderImage
-                    .setImageDrawable(ContextCompat
-                            .getDrawable(MainActivity.this,
-                                    R.drawable.ic_account_circle_black_36dp));
-        } else {
+        // Navigation View
+        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        navigationView.setNavigationItemSelectedListener(this);
+        View navHeaderView = navigationView.inflateHeaderView(R.layout.nav_header_main);
+
+        // image
+        CircleImageView navheaderImage = (CircleImageView) navHeaderView.findViewById(R.id.nav_header_image);
+        if (mFirebaseUser.getPhotoUrl() != null ) {
             Glide.with(MainActivity.this)
-                    .load(photoUrl)
-                    .into(mNavheaderImage);
+                    .load(mFirebaseUser.getPhotoUrl().toString())
+                    .into(navheaderImage);
+        } else {
+            navheaderImage.setImageDrawable(ContextCompat
+                    .getDrawable(MainActivity.this,
+                            R.drawable.ic_account_circle_black_36dp));
         }
 
-        mNavheaderName.setText(name);
-        mNavheaderEmail.setText(email);
+        // name
+        TextView navheaderName = (TextView) navHeaderView.findViewById(R.id.nav_header_name);
+        navheaderName.setText(mFirebaseUser.getDisplayName());
+
+        // email
+        TextView navheaderEmail = (TextView) navHeaderView.findViewById(R.id.nav_header_email);
+        navheaderEmail.setText(mFirebaseUser.getEmail());
 
     }
 
     @Override
     public void onBackPressed() {
+        Log.d(TAG, "onBackPressed");
+
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         if (drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START);
@@ -193,42 +192,96 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
-//        mFirebaseAdapter.cleanup();
+    protected void onStop() {
+        Log.d(TAG, "onStop");
+        super.onStop();
+
+        if( mFirebaseAdapter != null )
+            mFirebaseAdapter.setIndexInFirebase();
     }
 
     @Override
+    protected void onDestroy() {
+        Log.d(TAG, "onDestroy");
+        super.onDestroy();
+
+        mFirebaseAdapter.cleanup();
+    }
+
+
+    // RecyclerView Event
+    @Override
     public void onStartDrag(RecyclerView.ViewHolder viewHolder) {
+        Log.d(TAG, "onStartDrag");
         mItemTouchHelper.startDrag(viewHolder);
     }
 
-    public boolean startTaskEditActivity(TodoTask task) {
+    @Override
+    public void onClickItem(RecyclerView.ViewHolder viewHolder) {
+        Log.d(TAG, "onClickItem");
+        TodoTask task = ((FirebaseTaskViewHolder) viewHolder).getTodoTask();
+        startTaskEditActivity(task, viewHolder.getAdapterPosition());
+    }
+
+    @Override
+    public void onAddItem() {
+        Log.d(TAG, "onAddItem");
+
+        // 先頭にフォーカスを移す
+        mTaskRecyclerView.getLayoutManager().scrollToPosition(0);
+    }
+
+    @Override
+    public void onPopulateViewHolder() {
+        progressBarVisible(ProgressBar.INVISIBLE);
+    }
+
+
+    /**
+     * TaskEditActivity を起動
+     * @param task 起動するタスク
+     * @param position RecyclerView での表示位置
+     */
+    private void startTaskEditActivity(TodoTask task, int position) {
+        Log.d(TAG, "startTaskEditActivity");
 
         Intent intent = new Intent(getApplication(), TaskEditActivity.class);
-        intent.putExtra("task", task);
+        intent.putExtra(Constants.STR_TASK, task);
+        intent.putExtra(Constants.STR_POSITION, position);
 
-        int requestCode = RESULT_TASKEDITACTIVITY;
+        int requestCode = Constants.RESULT_TASKEDITACTIVITY;
         startActivityForResult( intent, requestCode );
-
-        return true;
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        Log.d(TAG, "onActivityResult");
         super.onActivityResult(requestCode, resultCode, data);
 
-        if(resultCode == RESULT_OK && requestCode == RESULT_TASKEDITACTIVITY && data != null) {
-            TodoTask task = (TodoTask)data.getSerializableExtra("task");
-            if( task.getPosition() == -1 )
-                mFirebaseDatabaseReference.push().setValue(task);
-            else
-                mFirebaseAdapter.getRef(task.getPosition()).setValue(task);
+        if(resultCode == RESULT_OK && requestCode == Constants.RESULT_TASKEDITACTIVITY && data != null) {
+            TodoTask task = (TodoTask)data.getSerializableExtra(Constants.STR_TASK);
+            int position = data.getIntExtra(Constants.STR_POSITION, Constants.NUM_UNDEFINED);
+
+            if( position == Constants.NUM_UNDEFINED ) {
+                // 新規追加
+                DatabaseReference dbRef = FirebaseDatabase
+                        .getInstance()
+                        .getReference(mFirebaseUser.getUid())
+                        .child(Constants.FIREBASE_DB_TASKS_CHILD);
+
+                if (dbRef != null)
+                    dbRef.push().setValue(task);
+            }
+            else {
+                // 更新
+                mFirebaseAdapter.getRef(position).setValue(task);
+            }
         }
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
+        Log.d(TAG, "onCreateOptionsMenu");
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
         return true;
@@ -236,22 +289,21 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
+        Log.d(TAG, "onOptionsItemSelected");
 
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-
-        else if (id == R.id.sign_out_menu) {
-            mFirebaseAuth.signOut();
-            Auth.GoogleSignInApi.signOut(mGoogleApiClient);
-            mUsername = ANONYMOUS;
-            startActivity(new Intent(this, LoginActivity.class));
-            return true;
+        switch (item.getItemId()) {
+            case R.id.sign_out_menu: {
+                mFirebaseAdapter.cleanup();
+                mFirebaseAuth.signOut();
+                Auth.GoogleSignInApi.signOut(mGoogleApiClient);
+                startActivity(new Intent(this, LoginActivity.class));
+                return true;
+            }
+            case R.id.action_settings:
+                Toast.makeText(this, "Sorry. Now preparing...", Toast.LENGTH_SHORT).show();
+                break;
+            default:
+                break;
         }
 
         return super.onOptionsItemSelected(item);
@@ -269,21 +321,15 @@ public class MainActivity extends AppCompatActivity
     @SuppressWarnings("StatementWithEmptyBody")
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
-        // Handle navigation view item clicks here.
-        int id = item.getItemId();
+        Log.d(TAG, "onNavigationItemSelected");
 
-        if (id == R.id.nav_camera) {
-            // Handle the camera action
-        } else if (id == R.id.nav_gallery) {
-
-        } else if (id == R.id.nav_slideshow) {
-
-        } else if (id == R.id.nav_manage) {
-
-        } else if (id == R.id.nav_share) {
-
-        } else if (id == R.id.nav_send) {
-
+        switch (item.getItemId()) {
+            case R.id.nav_today:
+            case R.id.nav_important:
+                Toast.makeText(this, "Sorry. Now preparing...", Toast.LENGTH_SHORT).show();
+                break;
+            default:
+                break;
         }
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
@@ -292,6 +338,7 @@ public class MainActivity extends AppCompatActivity
      }
 
     public void progressBarVisible(int visible) {
+        Log.d(TAG, "progressBarVisible");
         mProgressBar.setVisibility(visible);
     }
 }
