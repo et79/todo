@@ -3,6 +3,7 @@ package com.et79.todo.ui;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
@@ -53,6 +54,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static android.Manifest.permission.READ_CONTACTS;
+import static com.et79.todo.util.util.isOnline;
 
 /**
  * A login screen that offers login via email/password.
@@ -79,6 +81,7 @@ public class LoginActivity extends AppCompatActivity implements
      * Keep track of the login task to ensure we can cancel it if requested.
      */
     private UserLoginTask mAuthTask = null;
+    private boolean mIsSignIn = false;
 
     // UI references.
     private AutoCompleteTextView mEmailView;
@@ -125,12 +128,8 @@ public class LoginActivity extends AppCompatActivity implements
 
         // Set click listeners
         mGoogleSignInButton.setOnClickListener(this);
-        mEmailSignInButton.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                attemptLogin();
-            }
-        });
+        mEmailSignUpButton.setOnClickListener(this);
+        mEmailSignInButton.setOnClickListener(this);
 
         // Configure Google Sign In
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -150,7 +149,7 @@ public class LoginActivity extends AppCompatActivity implements
     protected void onResume() {
         super.onResume();
 
-        if( !isOnline() ) {
+        if( !isOnline(this) ) {
             Log.d(TAG, "Network Error.");
             Toast.makeText(this, getString(R.string.error_netwrok), Toast.LENGTH_LONG).show();
 
@@ -159,13 +158,6 @@ public class LoginActivity extends AppCompatActivity implements
         }
         else
             enableControls(true);
-    }
-
-    private boolean isOnline() {
-        ConnectivityManager connMgr = (ConnectivityManager)
-                this.getSystemService(this.CONNECTIVITY_SERVICE);
-        NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
-        return (networkInfo != null && networkInfo.isConnected());
     }
 
     private void enableControls( boolean isEnable ) {
@@ -186,9 +178,11 @@ public class LoginActivity extends AppCompatActivity implements
                 signIn();
                 break;
             case R.id.email_sign_up_button:
+                mIsSignIn = false;
                 attemptLogin(); // TODO
                 break;
             case R.id.email_sign_in_button:
+                mIsSignIn = true;
                 attemptLogin(); // TODO
                 break;
         }
@@ -331,8 +325,16 @@ public class LoginActivity extends AppCompatActivity implements
             // Show a progress spinner, and kick off a background task to
             // perform the user login attempt.
             showProgress(true);
-            mAuthTask = new UserLoginTask(email, password);
-            mAuthTask.execute((Void) null);
+//            mAuthTask = new UserLoginTask(email, password);
+//            mAuthTask.execute((Void) null);
+
+            // TODO: register the new account here.
+            if (mIsSignIn) {
+                signInWithEmail(email, password);
+            }
+            else {
+                signUpWithEmail(email, password);
+            }
         }
     }
 
@@ -462,22 +464,29 @@ public class LoginActivity extends AppCompatActivity implements
         protected Boolean doInBackground(Void... params) {
             // TODO: attempt authentication against a network service.
 
-            try {
-                // Simulate network access.
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                return false;
-            }
+//            try {
+//                // Simulate network access.
+//                Thread.sleep(2000);
+//            } catch (InterruptedException e) {
+//                return false;
+//            }
 
-            for (String credential : DUMMY_CREDENTIALS) {
-                String[] pieces = credential.split(":");
-                if (pieces[0].equals(mEmail)) {
-                    // Account exists, return true if the password matches.
-                    return pieces[1].equals(mPassword);
-                }
-            }
+//            for (String credential : DUMMY_CREDENTIALS) {
+//                String[] pieces = credential.split(":");
+//                if (pieces[0].equals(mEmail)) {
+//                    // Account exists, return true if the password matches.
+//                    return pieces[1].equals(mPassword);
+//                }
+//            }
+//
+//            // TODO: register the new account here.
+//            if (mIsSignIn) {
+//                signInWithEmail(mEmail, mPassword);
+//            }
+//            else {
+//                signUpWithEmail(mEmail, mPassword);
+//            }
 
-            // TODO: register the new account here.
             return true;
         }
 
@@ -500,5 +509,54 @@ public class LoginActivity extends AppCompatActivity implements
             showProgress(false);
         }
     }
+
+    private void signUpWithEmail(String email, String password) {
+
+        mFirebaseAuth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        Log.d(TAG, "createUserWithEmail:onComplete:" + task.isSuccessful());
+
+                        showProgress(false);
+
+                        // If sign in fails, display a message to the user. If sign in succeeds
+                        // the auth state listener will be notified and logic to handle the
+                        // signed in user can be handled in the listener.
+                        if (!task.isSuccessful()) {
+                            Toast.makeText(LoginActivity.this, task.getException().getMessage(),
+                                    Toast.LENGTH_SHORT).show();
+                        } else {
+                            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+                            finish();
+                        }
+                    }
+                });
+    }
+
+    private void signInWithEmail(String email, String password) {
+
+        mFirebaseAuth.signInWithEmailAndPassword(email, password)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        Log.d(TAG, "signInWithEmail:onComplete" + task.isSuccessful());
+
+                        showProgress(false);
+
+                        // If sign in fails, display a message to the user. If sign in succeeds
+                        // the auth state listener will be notified and logic to handle the
+                        // signed in user can be handled in the listener.
+                        if (!task.isSuccessful()) {
+                            Toast.makeText(LoginActivity.this, task.getException().getMessage(),
+                                    Toast.LENGTH_SHORT).show();
+                        } else {
+                            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+                            finish();
+                        }
+                    }
+                });
+    }
+
 }
 

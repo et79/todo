@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.helper.ItemTouchHelper;
@@ -17,9 +18,12 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
 import com.et79.todo.R;
 import com.et79.todo.models.TodoTask;
 import com.et79.todo.adapters.FirebaseTaskListAdapter;
@@ -34,6 +38,8 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
+import de.hdodenhof.circleimageview.CircleImageView;
+
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener,
         GoogleApiClient.OnConnectionFailedListener,
@@ -43,12 +49,16 @@ public class MainActivity extends AppCompatActivity
     private static final int RESULT_TASKEDITACTIVITY = 1001;
     private static final String TASKS_CHILD = "tasks";
 
-    private String mUsername;
+    private String mUsername = ANONYMOUS;
+    private String mUserEmail = "";
     private String mPhotoUrl;
     private GoogleApiClient mGoogleApiClient;
 
     public static final String ANONYMOUS = "anonymous";
 
+    private CircleImageView mNavheaderImage;
+    private TextView mNavheaderName;
+    private TextView mNavheaderEmail;
 
     // RecyclerView instance variables
     private RecyclerView mTaskRecyclerView;
@@ -69,8 +79,9 @@ public class MainActivity extends AppCompatActivity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         mTaskRecyclerView = (RecyclerView) findViewById(R.id.taskRecyclerView);
+
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
@@ -93,6 +104,12 @@ public class MainActivity extends AppCompatActivity
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
+        View navHeaderView= navigationView.inflateHeaderView(R.layout.nav_header_main);
+
+        mNavheaderImage = (CircleImageView) navHeaderView.findViewById(R.id.nav_header_image);
+        mNavheaderName = (TextView) navHeaderView.findViewById(R.id.nav_header_name);
+        mNavheaderEmail = (TextView) navHeaderView.findViewById(R.id.nav_header_email);
+
         // Initialize ProgressBar.
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
 
@@ -103,6 +120,7 @@ public class MainActivity extends AppCompatActivity
                 .build();
 
         setUpFirebaseAdapter();
+        setNavHeader(mPhotoUrl, mUsername, mUserEmail);
 
     }
 
@@ -119,6 +137,7 @@ public class MainActivity extends AppCompatActivity
             return;
         } else {
             mUsername = mFirebaseUser.getDisplayName();
+            mUserEmail = mFirebaseUser.getEmail();
             if (mFirebaseUser.getPhotoUrl() != null) {
                 mPhotoUrl = mFirebaseUser.getPhotoUrl().toString();
             }
@@ -144,6 +163,25 @@ public class MainActivity extends AppCompatActivity
         mItemTouchHelper.attachToRecyclerView(mTaskRecyclerView);
     }
 
+    public void setNavHeader(String photoUrl, String name, String email) {
+
+        // Image
+        if (photoUrl == null || photoUrl.equals("")) {
+            mNavheaderImage
+                    .setImageDrawable(ContextCompat
+                            .getDrawable(MainActivity.this,
+                                    R.drawable.ic_account_circle_black_36dp));
+        } else {
+            Glide.with(MainActivity.this)
+                    .load(photoUrl)
+                    .into(mNavheaderImage);
+        }
+
+        mNavheaderName.setText(name);
+        mNavheaderEmail.setText(email);
+
+    }
+
     @Override
     public void onBackPressed() {
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
@@ -157,7 +195,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        mFirebaseAdapter.cleanup();
+//        mFirebaseAdapter.cleanup();
     }
 
     @Override
