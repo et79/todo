@@ -2,6 +2,7 @@ package com.et79.todo.adapters;
 
 import android.content.Context;
 import android.support.v4.view.MotionEventCompat;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,6 +34,7 @@ public class FirebaseTaskListAdapter
     private DatabaseReference mDbRef;
     private FirebaseTaskListEventListener mFirebaseTaskListEventListener;
     private Context mContext;
+    private boolean mIsNeedUpdateIndex = false;
 
     private ChildEventListener mChildEventListener;
     private ArrayList<TodoTask> mTasks = new ArrayList<>();
@@ -50,27 +52,33 @@ public class FirebaseTaskListAdapter
 
             @Override
             public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+                Log.d(TAG, "onChildAdded");
                 mTasks.add(0, dataSnapshot.getValue(TodoTask.class));
                 mFirebaseTaskListEventListener.onAddItem();
+                mIsNeedUpdateIndex = true;
             }
 
             @Override
             public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+                Log.d(TAG, "onChildChanged");
 
             }
 
             @Override
             public void onChildRemoved(DataSnapshot dataSnapshot) {
+                Log.d(TAG, "onChildRemoved");
 
             }
 
             @Override
             public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+                Log.d(TAG, "onChildMoved");
 
             }
 
             @Override
             public void onCancelled(DatabaseError databaseError) {
+                Log.d(TAG, "onCancelled");
 
             }
         });
@@ -78,10 +86,12 @@ public class FirebaseTaskListAdapter
 
     @Override
     protected void populateViewHolder(final FirebaseTaskViewHolder viewHolder, TodoTask model, int position) {
+        Log.d(TAG, "populateViewHolder");
         viewHolder.bindTodoTask(model);
         viewHolder.mTaskReorder.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
+                Log.d(TAG, "onTouch");
                 if (MotionEventCompat.getActionMasked(event) == MotionEvent.ACTION_DOWN) {
                     mFirebaseTaskListEventListener.onStartDrag(viewHolder);
                 }
@@ -94,24 +104,30 @@ public class FirebaseTaskListAdapter
 
     @Override
     public boolean onItemMove(int fromPosition, int toPosition) {
+        Log.d(TAG, "onItemMove");
         Collections.swap(mTasks, fromPosition, toPosition);
         notifyItemMoved(fromPosition, toPosition);
+        mIsNeedUpdateIndex = true;
         return false;
     }
 
     @Override
     public void onItemDismiss(int position) {
+        Log.d(TAG, "onItemDismiss");
         mTasks.remove(position);
         getRef(position).removeValue();
+        mIsNeedUpdateIndex = true;
     }
 
     @Override
     public FirebaseTaskViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        Log.d(TAG, "onCreateViewHolder");
 
         final FirebaseTaskViewHolder viewHolder = super.onCreateViewHolder(parent, viewType);
         viewHolder.itemView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                Log.d(TAG, "onClick");
                 mFirebaseTaskListEventListener.onClickItem(viewHolder);
             }
         });
@@ -123,16 +139,22 @@ public class FirebaseTaskListAdapter
 
     @Override
     public void cleanup() {
+        Log.d(TAG, "cleanup");
         super.cleanup();
         setIndexInFirebase();
         mDbRef.removeEventListener(mChildEventListener);
     }
 
     public void setIndexInFirebase() {
-        for (TodoTask task : mTasks) {
-            int index = mTasks.indexOf(task);
-            task.setIndex(index);
-            getRef(index).setValue(task);
+        Log.d(TAG, "setIndexInFirebase");
+
+        if (mIsNeedUpdateIndex) {
+            for (TodoTask task : mTasks) {
+                int index = mTasks.indexOf(task);
+                task.setIndex(index);
+                getRef(index).setValue(task);
+                mIsNeedUpdateIndex = false;
+            }
         }
     }
 }

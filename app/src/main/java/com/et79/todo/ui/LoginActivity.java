@@ -139,17 +139,10 @@ public class LoginActivity extends AppCompatActivity implements
     protected void onResume() {
         Log.d(TAG, "onResume");
         super.onResume();
-
-        if( isOnline(this) ) {
-            enableControls(true);
-        } else {
-            Log.d(TAG, "Network Error.");
-            Toast.makeText(this, getString(R.string.error_network), Toast.LENGTH_LONG).show();
-            enableControls(false);
-        }
     }
 
     private void enableControls( boolean isEnable ) {
+        Log.d(TAG, "enableControls");
 
         mEmailView.setEnabled(isEnable);
         mLoginFormView.setEnabled(isEnable);
@@ -179,8 +172,25 @@ public class LoginActivity extends AppCompatActivity implements
         }
     }
 
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction()==KeyEvent.ACTION_DOWN) {
+            switch (event.getKeyCode()) {
+                // Backキー無効化
+                case KeyEvent.KEYCODE_BACK:
+                    Log.d(TAG, "dispatchKeyEvent: KEYCODE_BACK");
+                    Toast.makeText(LoginActivity.this, getString(R.string.label_please_sign_in),
+                            Toast.LENGTH_SHORT).show();
+                    return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
     private void signInWithGoogle() {
         Log.d(TAG, "signInWithGoogle");
+
+        enableControls(false);
 
         Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
         startActivityForResult(signInIntent, RC_SIGN_IN);
@@ -188,6 +198,7 @@ public class LoginActivity extends AppCompatActivity implements
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        Log.d(TAG, "onActivityResult");
         super.onActivityResult(requestCode, resultCode, data);
 
         // Result returned from launching the Intent from GoogleSignInApi.getSignInIntent(...);
@@ -217,6 +228,7 @@ public class LoginActivity extends AppCompatActivity implements
     }
 
     private void signUpWithEmail(String email, String password) {
+        Log.d(TAG, "signUpWithEmail");
 
         mFirebaseAuth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
@@ -229,6 +241,7 @@ public class LoginActivity extends AppCompatActivity implements
     }
 
     private void signInWithEmail(String email, String password) {
+        Log.d(TAG, "signInWithEmail");
 
         mFirebaseAuth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
@@ -241,6 +254,7 @@ public class LoginActivity extends AppCompatActivity implements
     }
 
     private void postSignIn(Task<AuthResult> task) {
+        Log.d(TAG, "postSignIn");
 
         showProgress(false);
 
@@ -258,6 +272,8 @@ public class LoginActivity extends AppCompatActivity implements
     }
 
     private void populateAutoComplete() {
+        Log.d(TAG, "populateAutoComplete");
+
         if (!mayRequestContacts()) {
             return;
         }
@@ -266,6 +282,8 @@ public class LoginActivity extends AppCompatActivity implements
     }
 
     private boolean mayRequestContacts() {
+        Log.d(TAG, "mayRequestContacts");
+
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             return true;
         }
@@ -293,6 +311,8 @@ public class LoginActivity extends AppCompatActivity implements
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
+        Log.d(TAG, "onRequestPermissionsResult");
+
         if (requestCode == REQUEST_READ_CONTACTS) {
             if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 populateAutoComplete();
@@ -307,6 +327,7 @@ public class LoginActivity extends AppCompatActivity implements
      * errors are presented and no actual login attempt is made.
      */
     private void attemptLogin() {
+        Log.d(TAG, "attemptLogin");
 
         // Reset errors.
         mEmailView.setError(null);
@@ -357,11 +378,15 @@ public class LoginActivity extends AppCompatActivity implements
     }
 
     private boolean isEmailValid(String email) {
+        Log.d(TAG, "isEmailValid");
+
         //TODO: Replace this with your own logic
         return email.contains("@");
     }
 
     private boolean isPasswordValid(String password) {
+        Log.d(TAG, "isPasswordValid");
+
         //TODO: Replace this with your own logic
         return password.length() > 4;
     }
@@ -371,6 +396,8 @@ public class LoginActivity extends AppCompatActivity implements
      */
     @TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
     private void showProgress(final boolean show) {
+        Log.d(TAG, "showProgress");
+
         // On Honeycomb MR2 we have the ViewPropertyAnimator APIs, which allow
         // for very easy animations. If available, use these APIs to fade-in
         // the progress spinner.
@@ -404,6 +431,8 @@ public class LoginActivity extends AppCompatActivity implements
 
     @Override
     public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
+        Log.d(TAG, "onCreateLoader");
+
         return new CursorLoader(this,
                 // Retrieve data rows for the device user's 'profile' contact.
                 Uri.withAppendedPath(ContactsContract.Profile.CONTENT_URI,
@@ -421,6 +450,8 @@ public class LoginActivity extends AppCompatActivity implements
 
     @Override
     public void onLoadFinished(Loader<Cursor> cursorLoader, Cursor cursor) {
+        Log.d(TAG, "onLoadFinished");
+
         List<String> emails = new ArrayList<>();
         cursor.moveToFirst();
         while (!cursor.isAfterLast()) {
@@ -433,7 +464,7 @@ public class LoginActivity extends AppCompatActivity implements
 
     @Override
     public void onLoaderReset(Loader<Cursor> cursorLoader) {
-
+        Log.d(TAG, "onLoaderReset");
     }
 
     @Override
@@ -445,6 +476,8 @@ public class LoginActivity extends AppCompatActivity implements
     }
 
     private void addEmailsToAutoComplete(List<String> emailAddressCollection) {
+        Log.d(TAG, "addEmailsToAutoComplete");
+
         //Create adapter to tell the AutoCompleteTextView what to show in its dropdown list.
         ArrayAdapter<String> adapter =
                 new ArrayAdapter<>(LoginActivity.this,

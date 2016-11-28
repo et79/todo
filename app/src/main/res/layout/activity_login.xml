@@ -27,8 +27,27 @@
         <LinearLayout
             android:id="@+id/email_login_form"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
+            android:paddingLeft="36dp"
+            android:paddingRight="36dp"
             android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/splash_image"
+                android:layout_width="128dp"
+                android:layout_height="128dp"
+                android:layout_marginTop="@dimen/activity_horizontal_margin"
+                android:layout_marginBottom="@dimen/activity_horizontal_margin"
+                android:layout_gravity="center"
+                android:src="@drawable/todo_mark" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="@dimen/activity_horizontal_margin"
+                android:text="@string/label_please_sign_in"
+                android:textAppearance="@style/TextAppearance.AppCompat.Display1"/>
 
             <android.support.design.widget.TextInputLayout
                 android:layout_width="match_parent"
@@ -40,8 +59,8 @@
                     android:layout_height="wrap_content"
                     android:hint="@string/prompt_email"
                     android:inputType="textEmailAddress"
-                    android:maxLines="1"
-                    android:singleLine="true" />
+                    android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+                    android:maxLines="1" />
 
             </android.support.design.widget.TextInputLayout>
 
@@ -58,8 +77,8 @@
                     android:imeActionLabel="@string/action_sign_in_short"
                     android:imeOptions="actionUnspecified"
                     android:inputType="textPassword"
-                    android:maxLines="1"
-                    android:singleLine="true" />
+                    android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+                    android:maxLines="1" />
 
             </android.support.design.widget.TextInputLayout>
 
@@ -67,26 +86,39 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:gravity="center"
                 android:orientation="horizontal">
 
                 <Button
-                    android:id="@+id/email_sign_up_button"
-                    style="?android:textAppearanceSmall"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginTop="@dimen/activity_horizontal_margin"
-                    android:text="@string/action_sign_up"
-                    android:textStyle="bold" />
-                <Button
                     android:id="@+id/email_sign_in_button"
-                    style="?android:textAppearanceSmall"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_height="@dimen/activity_button_height"
+                    android:paddingLeft="@dimen/activity_vertical_margin"
+                    android:paddingRight="@dimen/activity_vertical_margin"
                     android:layout_marginTop="@dimen/activity_horizontal_margin"
+                    android:layout_marginBottom="@dimen/activity_horizontal_margin"
                     android:text="@string/action_sign_in"
-                    android:textStyle="bold" />
+                    android:background="@drawable/button_background_white"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Button"/>
+
+                <Button
+                    android:id="@+id/email_sign_up_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="@dimen/activity_button_height"
+                    android:paddingLeft="@dimen/activity_vertical_margin"
+                    android:paddingRight="@dimen/activity_vertical_margin"
+                    android:layout_marginLeft="@dimen/activity_horizontal_margin"
+                    android:layout_marginTop="@dimen/activity_horizontal_margin"
+                    android:layout_marginBottom="@dimen/activity_horizontal_margin"
+                    android:background="@drawable/button_background"
+                    android:text="@string/action_sign_up"
+                    android:textColor="@color/white"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Button"/>
+
+                <!--Button text: 14pt Roboto medium-->
+                <!--Button height: 36dp-->
+                <!--Button text left and right padding: 16dp-->
+                <!--Corner radius: 2dp-->
 
             </LinearLayout>
 
@@ -94,15 +126,17 @@
                 android:id="@+id/nav_header_email"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/activity_horizontal_margin"
+                android:layout_marginTop="@dimen/activity_vertical_margin"
+                android:layout_gravity="center"
                 android:text="@string/label_sign_in_google_account"
-                android:textAppearance="?android:attr/textAppearanceMedium" />
+                android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
 
             <com.google.android.gms.common.SignInButton
                 android:id="@+id/google_sign_in_button"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"/>
+                android:layout_gravity="center"
+                android:layout_marginTop="@dimen/activity_vertical_margin"/>
 
         </LinearLayout>
     </ScrollView>

@@ -18,6 +18,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.animation.AlphaAnimation;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -35,9 +37,13 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.MutableData;
 import com.google.firebase.database.Query;
+import com.google.firebase.database.Transaction;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
@@ -62,6 +68,8 @@ public class MainActivity extends AppCompatActivity
     private FirebaseAuth mFirebaseAuth;
     private FirebaseUser mFirebaseUser;
 
+    private LinearLayout mSplash;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,6 +79,8 @@ public class MainActivity extends AppCompatActivity
         setContentView(R.layout.activity_main);
 
         mTaskRecyclerView = (RecyclerView) findViewById(R.id.taskRecyclerView);
+        mSplash = (LinearLayout) findViewById(R.id.splash);
+        splashVisible(View.VISIBLE);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -79,11 +89,6 @@ public class MainActivity extends AppCompatActivity
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
-                // 新しい要素を増やす前に、並び順をFirebase側で覚えておく
-                // パフォーマンス的に良くないきもする。。いい方法があれば変える。
-                mFirebaseAdapter.setIndexInFirebase();
-
                 startTaskEditActivity(new TodoTask(), Constants.NUM_UNDEFINED);
             }
         });
@@ -103,12 +108,13 @@ public class MainActivity extends AppCompatActivity
                 .addApi(Auth.GOOGLE_SIGN_IN_API)
                 .build();
 
-        setUpFirebaseAuth();
-        setUpFirebaseAdapter();
-        setNavHeader();
+        if (setUpFirebaseAuth()) {
+            setUpFirebaseAdapter();
+            setNavHeader();
+        }
     }
 
-    private void setUpFirebaseAuth() {
+    private boolean setUpFirebaseAuth() {
         Log.d(TAG, "setUpFirebaseAuth");
 
         // Initialize Firebase Auth
@@ -119,23 +125,49 @@ public class MainActivity extends AppCompatActivity
             // Not signed in, launch the Sign In activity
             startActivity(new Intent(this, LoginActivity.class));
             finish();
+
+            return false;
         }
+
+        return true;
     }
 
     private void setUpFirebaseAdapter() {
         Log.d(TAG, "setUpFirebaseAdapter");
 
-        Query query = FirebaseDatabase.getInstance()
+        DatabaseReference dbRef = FirebaseDatabase.getInstance()
                 .getReference(mFirebaseUser.getUid())
-                .child(Constants.FIREBASE_DB_TASKS_CHILD)
-                .orderByChild(Constants.FIREBASE_QUERY_INDEX);
+                .child(Constants.FIREBASE_DB_TASKS_CHILD);
+
+        dbRef.runTransaction(new Transaction.Handler() {
+
+            @Override
+            public Transaction.Result doTransaction(MutableData mutableData) {
+                return Transaction.success(mutableData);
+            }
+
+            @Override
+            public void onComplete(DatabaseError databaseError, boolean b,
+                                   DataSnapshot dataSnapshot) {
+
+                if (dataSnapshot.getChildrenCount() == 0) {
+                    progressBarVisible(ProgressBar.INVISIBLE);
+                    splashVisible(View.GONE);
+                }
+
+                // Transaction completed
+                Log.d(TAG, "postTransaction:onComplete:" + databaseError);
+            }
+        });
+
+        Query query = dbRef.orderByChild(Constants.FIREBASE_QUERY_INDEX);
 
         mFirebaseAdapter = new FirebaseTaskListAdapter(
                 TodoTask.class,
                 R.layout.item_task,
                 FirebaseTaskViewHolder.class,
                 query,
-                this,this);
+                this, this);
 
         mTaskRecyclerView.setHasFixedSize(true);
         mTaskRecyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -159,7 +191,7 @@ public class MainActivity extends AppCompatActivity
 
         // image
         CircleImageView navheaderImage = (CircleImageView) navHeaderView.findViewById(R.id.nav_header_image);
-        if (mFirebaseUser.getPhotoUrl() != null ) {
+        if (mFirebaseUser.getPhotoUrl() != null) {
             Glide.with(MainActivity.this)
                     .load(mFirebaseUser.getPhotoUrl().toString())
                     .into(navheaderImage);
@@ -196,7 +228,7 @@ public class MainActivity extends AppCompatActivity
         Log.d(TAG, "onStop");
         super.onStop();
 
-        if( mFirebaseAdapter != null )
+        if (mFirebaseAdapter != null)
             mFirebaseAdapter.setIndexInFirebase();
     }
 
@@ -205,9 +237,9 @@ public class MainActivity extends AppCompatActivity
         Log.d(TAG, "onDestroy");
         super.onDestroy();
 
-        mFirebaseAdapter.cleanup();
+        if (mFirebaseAdapter != null)
+            mFirebaseAdapter.cleanup();
     }
-
 
     // RecyclerView Event
     @Override
@@ -234,12 +266,13 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onPopulateViewHolder() {
         progressBarVisible(ProgressBar.INVISIBLE);
+        splashVisible(View.GONE);
     }
-
 
     /**
      * TaskEditActivity を起動
-     * @param task 起動するタスク
+     *
+     * @param task     起動するタスク
      * @param position RecyclerView での表示位置
      */
     private void startTaskEditActivity(TodoTask task, int position) {
@@ -250,7 +283,7 @@ public class MainActivity extends AppCompatActivity
         intent.putExtra(Constants.STR_POSITION, position);
 
         int requestCode = Constants.RESULT_TASKEDITACTIVITY;
-        startActivityForResult( intent, requestCode );
+        startActivityForResult(intent, requestCode);
     }
 
     @Override
@@ -258,11 +291,11 @@ public class MainActivity extends AppCompatActivity
         Log.d(TAG, "onActivityResult");
         super.onActivityResult(requestCode, resultCode, data);
 
-        if(resultCode == RESULT_OK && requestCode == Constants.RESULT_TASKEDITACTIVITY && data != null) {
-            TodoTask task = (TodoTask)data.getSerializableExtra(Constants.STR_TASK);
+        if (resultCode == RESULT_OK && requestCode == Constants.RESULT_TASKEDITACTIVITY && data != null) {
+            TodoTask task = (TodoTask) data.getSerializableExtra(Constants.STR_TASK);
             int position = data.getIntExtra(Constants.STR_POSITION, Constants.NUM_UNDEFINED);
 
-            if( position == Constants.NUM_UNDEFINED ) {
+            if (position == Constants.NUM_UNDEFINED) {
                 // 新規追加
                 DatabaseReference dbRef = FirebaseDatabase
                         .getInstance()
@@ -271,8 +304,7 @@ public class MainActivity extends AppCompatActivity
 
                 if (dbRef != null)
                     dbRef.push().setValue(task);
-            }
-            else {
+            } else {
                 // 更新
                 mFirebaseAdapter.getRef(position).setValue(task);
             }
@@ -293,7 +325,6 @@ public class MainActivity extends AppCompatActivity
 
         switch (item.getItemId()) {
             case R.id.sign_out_menu: {
-                mFirebaseAdapter.cleanup();
                 mFirebaseAuth.signOut();
                 Auth.GoogleSignInApi.signOut(mGoogleApiClient);
                 startActivity(new Intent(this, LoginActivity.class));
@@ -308,7 +339,6 @@ public class MainActivity extends AppCompatActivity
 
         return super.onOptionsItemSelected(item);
     }
-
 
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
@@ -335,10 +365,27 @@ public class MainActivity extends AppCompatActivity
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
-     }
+    }
 
-    public void progressBarVisible(int visible) {
+    private void progressBarVisible(int visible) {
         Log.d(TAG, "progressBarVisible");
         mProgressBar.setVisibility(visible);
     }
+
+    private void splashVisible(int visible) {
+
+        if (mSplash == null)
+            return;
+
+        AlphaAnimation animation;
+
+        if (visible == View.GONE) {
+            animation = new AlphaAnimation(1, 0);
+            animation.setDuration(100);
+            mSplash.startAnimation(animation);
+        }
+
+        mSplash.setVisibility(visible);
+    }
+
 }

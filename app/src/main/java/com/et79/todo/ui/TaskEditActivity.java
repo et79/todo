@@ -6,6 +6,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.MenuItem;
+import android.view.WindowManager;
 import android.widget.EditText;
 
 import com.et79.todo.Constants;
@@ -28,7 +29,6 @@ public class TaskEditActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate");
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_task_edit);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -96,6 +96,11 @@ public class TaskEditActivity extends AppCompatActivity {
 
     private boolean isEdit() {
         Log.d(TAG, "isEdit");
+
+        // 未入力の場合
+        if( mTaskTitleView.getText().toString().equals("") &&
+                mTaskContentView.getText().toString().equals("") )
+            return false;
 
         if (!mTaskTitleView.getText().toString().equals(mOrgTask.getTitle()) ||
                 !mTaskContentView.getText().toString().equals(mOrgTask.getContent()))
