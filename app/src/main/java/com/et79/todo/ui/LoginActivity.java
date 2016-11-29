@@ -31,7 +31,10 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.et79.todo.Constants;
 import com.et79.todo.R;
+import com.et79.todo.models.TodoTask;
+import com.et79.todo.util.util;
 import com.google.android.gms.auth.api.Auth;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
@@ -47,6 +50,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.GoogleAuthProvider;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import static android.Manifest.permission.READ_CONTACTS;
@@ -71,7 +75,10 @@ public class LoginActivity extends AppCompatActivity implements
      * Keep track of the login task to ensure we can cancel it if requested.
      */
 
-    private boolean mIsSignIn = false;
+    private GoogleApiClient mGoogleApiClient;
+
+    // Firebase instance variables
+    private FirebaseAuth mFirebaseAuth;
 
     // UI references.
     private AutoCompleteTextView mEmailView;
@@ -81,11 +88,6 @@ public class LoginActivity extends AppCompatActivity implements
     Button mEmailSignUpButton;
     Button mEmailSignInButton;
     SignInButton mGoogleSignInButton;
-
-    private GoogleApiClient mGoogleApiClient;
-
-    // Firebase instance variables
-    private FirebaseAuth mFirebaseAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,17 +107,6 @@ public class LoginActivity extends AppCompatActivity implements
 
         populateAutoComplete();
 
-        mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView textView, int id, KeyEvent keyEvent) {
-                if (id == R.id.login || id == EditorInfo.IME_NULL) {
-                    attemptLogin();
-                    return true;
-                }
-                return false;
-            }
-        });
-
         // Set click listeners
         mGoogleSignInButton.setOnClickListener(this);
         mEmailSignUpButton.setOnClickListener(this);
@@ -133,12 +124,6 @@ public class LoginActivity extends AppCompatActivity implements
 
         // Initialize FirebaseAuth
         mFirebaseAuth = FirebaseAuth.getInstance();
-    }
-
-    @Override
-    protected void onResume() {
-        Log.d(TAG, "onResume");
-        super.onResume();
     }
 
     private void enableControls( boolean isEnable ) {
@@ -162,31 +147,17 @@ public class LoginActivity extends AppCompatActivity implements
                 signInWithGoogle();
                 break;
             case R.id.email_sign_up_button:
-                mIsSignIn = false;
-                attemptLogin();
+                attemptLogin(false);
                 break;
             case R.id.email_sign_in_button:
-                mIsSignIn = true;
-                attemptLogin();
+                attemptLogin(true);
                 break;
         }
     }
 
-    @Override
-    public boolean dispatchKeyEvent(KeyEvent event) {
-        if (event.getAction()==KeyEvent.ACTION_DOWN) {
-            switch (event.getKeyCode()) {
-                // Backキー無効化
-                case KeyEvent.KEYCODE_BACK:
-                    Log.d(TAG, "dispatchKeyEvent: KEYCODE_BACK");
-                    Toast.makeText(LoginActivity.this, getString(R.string.label_please_sign_in),
-                            Toast.LENGTH_SHORT).show();
-                    return true;
-            }
-        }
-        return super.dispatchKeyEvent(event);
-    }
-
+    /**
+     * Google アカウントでのログイン
+     */
     private void signInWithGoogle() {
         Log.d(TAG, "signInWithGoogle");
 
@@ -214,8 +185,11 @@ public class LoginActivity extends AppCompatActivity implements
             }
         }
     }
+
     private void firebaseAuthWithGoogle(GoogleSignInAccount acct) {
         Log.d(TAG, "firebaseAuthWithGooogle:" + acct.getId());
+        showProgress(true);
+
         AuthCredential credential = GoogleAuthProvider.getCredential(acct.getIdToken(), null);
         mFirebaseAuth.signInWithCredential(credential)
                 .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
@@ -227,21 +201,14 @@ public class LoginActivity extends AppCompatActivity implements
                 });
     }
 
-    private void signUpWithEmail(String email, String password) {
-        Log.d(TAG, "signUpWithEmail");
-
-        mFirebaseAuth.createUserWithEmailAndPassword(email, password)
-                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull Task<AuthResult> task) {
-                        Log.d(TAG, "createUserWithEmail:onComplete:" + task.isSuccessful());
-                        postSignIn(task);
-                    }
-                });
-    }
-
+    /**
+     * Email でのログイン
+     * @param email
+     * @param password
+     */
     private void signInWithEmail(String email, String password) {
         Log.d(TAG, "signInWithEmail");
+        showProgress(true);
 
         mFirebaseAuth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
@@ -253,6 +220,29 @@ public class LoginActivity extends AppCompatActivity implements
                 });
     }
 
+    /**
+     * Email でのユーザ作成
+     * @param email
+     * @param password
+     */
+    private void signUpWithEmail(String email, String password) {
+        Log.d(TAG, "signUpWithEmail");
+        showProgress(true);
+
+        mFirebaseAuth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        Log.d(TAG, "createUserWithEmail:onComplete:" + task.isSuccessful());
+                        postSignIn(task);
+                    }
+                });
+    }
+
+    /**
+     * ログイン後の処理
+     * @param task
+     */
     private void postSignIn(Task<AuthResult> task) {
         Log.d(TAG, "postSignIn");
 
@@ -266,10 +256,28 @@ public class LoginActivity extends AppCompatActivity implements
             Toast.makeText(LoginActivity.this, "Authentication failed.",
                     Toast.LENGTH_SHORT).show();
         } else {
-            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+//            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+            setResult(RESULT_OK, new Intent());
             finish();
         }
     }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction()==KeyEvent.ACTION_DOWN) {
+            switch (event.getKeyCode()) {
+                // Backキー無効化
+                case KeyEvent.KEYCODE_BACK:
+                    Log.d(TAG, "dispatchKeyEvent: KEYCODE_BACK");
+                    Toast.makeText(LoginActivity.this, getString(R.string.label_please_sign_in),
+                            Toast.LENGTH_SHORT).show();
+                    return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    // Runtime Permission関連の処理
 
     private void populateAutoComplete() {
         Log.d(TAG, "populateAutoComplete");
@@ -326,7 +334,7 @@ public class LoginActivity extends AppCompatActivity implements
      * If there are form errors (invalid email, missing fields, etc.), the
      * errors are presented and no actual login attempt is made.
      */
-    private void attemptLogin() {
+    private void attemptLogin(boolean isSignIn) {
         Log.d(TAG, "attemptLogin");
 
         // Reset errors.
@@ -368,7 +376,7 @@ public class LoginActivity extends AppCompatActivity implements
             showProgress(true);
 
             // TODO: register the new account here.
-            if (mIsSignIn) {
+            if (isSignIn) {
                 signInWithEmail(email, password);
             }
             else {

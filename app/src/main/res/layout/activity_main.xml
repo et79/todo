@@ -35,7 +35,6 @@
         android:layout_height="match_parent">
 
         <ImageView
-            android:id="@+id/splash_image"
             android:layout_width="128dp"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
@@ -50,6 +49,15 @@
             android:layout_marginBottom="@dimen/activity_vertical_margin"
             android:layout_weight="1"
             android:textAppearance="@style/TextAppearance.AppCompat.Display2" />
+
+        <TextView
+            android:id="@+id/splash_ver_str"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="@string/version_str"
+            android:layout_marginBottom="@dimen/activity_vertical_margin"
+            android:textAppearance="@style/TextAppearance.AppCompat.Headline" />
 
     </LinearLayout>
 

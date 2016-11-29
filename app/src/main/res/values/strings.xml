@@ -2,6 +2,8 @@
     <string name="app_name">ToDo List</string>
 
     <!-- MainActivity -->
+    <string name="version_str">Version %s</string>
+    <string name="info_intro_mess">Please enter your tasks.</string>
 
     <!-- Main Menu -->
     <string name="sign_out">Sign Out</string>

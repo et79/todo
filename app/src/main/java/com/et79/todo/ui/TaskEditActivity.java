@@ -6,7 +6,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.MenuItem;
-import android.view.WindowManager;
 import android.widget.EditText;
 
 import com.et79.todo.Constants;
@@ -77,6 +76,9 @@ public class TaskEditActivity extends AppCompatActivity {
         super.onBackPressed();
     }
 
+    /**
+     * 編集結果を MainActivity へ返す
+     */
     private void setEditResult() {
         Log.d(TAG, "setEditResult");
 
@@ -102,10 +104,8 @@ public class TaskEditActivity extends AppCompatActivity {
                 mTaskContentView.getText().toString().equals("") )
             return false;
 
-        if (!mTaskTitleView.getText().toString().equals(mOrgTask.getTitle()) ||
-                !mTaskContentView.getText().toString().equals(mOrgTask.getContent()))
-            return true;
+        return !mTaskTitleView.getText().toString().equals(mOrgTask.getTitle()) ||
+                !mTaskContentView.getText().toString().equals(mOrgTask.getContent());
 
-        return false;
     }
 }
