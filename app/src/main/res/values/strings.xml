@@ -3,7 +3,9 @@
 
     <!-- MainActivity -->
     <string name="version_str">Version %s</string>
-    <string name="info_intro_mess">Please enter your tasks.</string>
+    <string name="coach_mark_title">\n\n\n\n\nAdd Task</string>
+    <string name="coach_mark_text">Let\'s add a task by pressing this button.</string>
+    <string name="snackbar_text">Completed task deleted.</string>
 
     <!-- Main Menu -->
     <string name="sign_out">Sign Out</string>

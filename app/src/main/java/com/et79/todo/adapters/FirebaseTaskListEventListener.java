@@ -6,5 +6,6 @@ public interface FirebaseTaskListEventListener {
     void onStartDrag(RecyclerView.ViewHolder viewHolder);
     void onClickItem(RecyclerView.ViewHolder viewHolder);
     void onAddItem();
+    void onItemDismiss();
     void onPopulateViewHolder();
 }

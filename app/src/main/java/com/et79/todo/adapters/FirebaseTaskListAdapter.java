@@ -117,6 +117,8 @@ public class FirebaseTaskListAdapter
         mTasks.remove(position);
         getRef(position).removeValue();
         mIsNeedUpdateIndex = true;
+
+        mFirebaseTaskListEventListener.onItemDismiss();
     }
 
     @Override

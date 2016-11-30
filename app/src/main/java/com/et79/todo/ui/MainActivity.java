@@ -1,9 +1,12 @@
 package com.et79.todo.ui;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.Snackbar;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -19,6 +22,7 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.animation.AlphaAnimation;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -32,6 +36,8 @@ import com.et79.todo.adapters.FirebaseTaskListAdapter;
 import com.et79.todo.adapters.FirebaseTaskListEventListener;
 import com.et79.todo.adapters.SimpleItemTouchHelperCallback;
 import com.et79.todo.util.util;
+import com.github.amlcurran.showcaseview.ShowcaseView;
+import com.github.amlcurran.showcaseview.targets.ViewTarget;
 import com.google.android.gms.auth.api.Auth;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -69,7 +75,8 @@ public class MainActivity extends AppCompatActivity
     // UI references.
     private LinearLayout mSplashView;
     private View mNavHeaderView;
-
+    private ShowcaseView mShowcaseView;
+    private FloatingActionButton mFloatingActionButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,11 +89,9 @@ public class MainActivity extends AppCompatActivity
         mTaskRecyclerView.setHasFixedSize(true);
         mTaskRecyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        // スプラッシュを表示
-        setUpSplash();
-
-        // プログレスバーは、今は使ってない
+        // プログレスバーは今は使ってないけど、一応残してます
         progressBarVisible(View.INVISIBLE);
+        setUpSplash();
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -96,12 +101,23 @@ public class MainActivity extends AppCompatActivity
         navigationView.setNavigationItemSelectedListener(this);
         mNavHeaderView = navigationView.inflateHeaderView(R.layout.nav_header_main);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
+        mFloatingActionButton = (FloatingActionButton) findViewById(R.id.fab);
+
+        if (getIsFirst()) {
+            // アプリ初回起動時はコーチマークを表示するので、スプラッシュは表示しない
+        } else {
+            // スプラッシュ表示
+            setSplashVisible(View.VISIBLE);
+        }
+
+        mFloatingActionButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 // タスクを追加
                 startTaskEditActivity(new TodoTask(), Constants.NUM_UNDEFINED);
+
+                // コールマーク非表示
+                hideCoachMark();
             }
         });
 
@@ -127,14 +143,38 @@ public class MainActivity extends AppCompatActivity
         setNavHeader();
     }
 
+    /**
+     * 初回起動か否か？
+     * @return true: 初回起動 false: ２回目以降
+     */
+    private boolean getIsFirst() {
+        Log.d(TAG, "isFirst");
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+        return prefs.getBoolean(Constants.STR_IS_FIRST, true);
+    }
+
+    /**
+     * 初回起動フラグを設定
+     * @param isFirst
+     */
+    private void setIsFirst(boolean isFirst) {
+        Log.d(TAG, "setIsFirst");
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putBoolean(Constants.STR_IS_FIRST, isFirst);
+        editor.apply();
+    }
+
     private void setUpSplash() {
+        Log.d(TAG, "setUpSplash");
+
         mSplashView = (LinearLayout) findViewById(R.id.splash);
 
         // バージョン名表示
         TextView splushVerStrTextView = (TextView) findViewById(R.id.splash_ver_str);
         splushVerStrTextView.setText(getString(R.string.version_str, util.getVersionName(this)));
-
-        splashVisible(View.VISIBLE);
     }
 
     private void setUpFirebaseAuth() {
@@ -180,7 +220,7 @@ public class MainActivity extends AppCompatActivity
 
                 // データが0個だった場合
                 if (taskCount == 0) {
-                    splashVisible(View.GONE);
+                    setSplashVisible(View.GONE);
 //                    progressBarVisible(ProgressBar.INVISIBLE);
                 }
             }
@@ -288,14 +328,29 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onPopulateViewHolder() {
-        splashVisible(View.GONE);
+        Log.d(TAG, "onPopulateViewHolder");
+
+        // アイテムを表示したので、スプラッシュを非表示にする
+        setSplashVisible(View.GONE);
 //        progressBarVisible(ProgressBar.INVISIBLE);
+    }
+
+    @Override
+    public void onItemDismiss() {
+        Log.d(TAG, "onItemDismiss");
+
+        // スナックバーを表示
+        // TODO: Undoの実装
+        FrameLayout layout = (FrameLayout) findViewById(R.id.mainActivityLayout);
+        Snackbar.make(layout, getString(R.string.snackbar_text), Snackbar.LENGTH_SHORT)
+                .show();
     }
 
     /**
      * LoginActivity の起動
      */
     private void startLoginActivity() {
+        Log.d(TAG, "startLoginActivity");
 
         Intent intent = new Intent(getApplication(), LoginActivity.class);
         startActivityForResult(intent, Constants.RESULT_LOGINACTIVITY);
@@ -320,6 +375,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         Log.d(TAG, "onActivityResult");
+
         super.onActivityResult(requestCode, resultCode, data);
 
         if (resultCode == RESULT_OK && data != null) {
@@ -330,6 +386,11 @@ public class MainActivity extends AppCompatActivity
                     UpdateTask(task, position);
                     break;
                 case Constants.RESULT_LOGINACTIVITY:
+                    // コーチマークを表示
+                    if (getIsFirst()) {
+                        showCoachMark(mFloatingActionButton);
+                        setIsFirst(false);
+                    }
                     changeLoginUser();
                     break;
                 default:
@@ -345,6 +406,7 @@ public class MainActivity extends AppCompatActivity
      * @param position 更新するタスクの RecyclerView 表示位置
      */
     private void UpdateTask(TodoTask task, int position) {
+        Log.d(TAG, "UpdateTask");
 
         if (position != Constants.NUM_UNDEFINED) {
             // 更新
@@ -365,6 +427,7 @@ public class MainActivity extends AppCompatActivity
      * ログインユーザが変わった場合
      */
     private void changeLoginUser() {
+        Log.d(TAG, "changeLoginUser");
 
         // ユーザ／UI表示／ナビゲーションを更新
         setUpFirebaseAuth();
@@ -375,6 +438,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         Log.d(TAG, "onCreateOptionsMenu");
+
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
         return true;
@@ -399,13 +463,6 @@ public class MainActivity extends AppCompatActivity
         }
 
         return super.onOptionsItemSelected(item);
-    }
-
-    /**
-     * MainActivity で保持している Firebaseデータの開放
-     */
-    private void releaseFirebaseData() {
-//        mFirebaseUser = null;
     }
 
     @Override
@@ -446,7 +503,8 @@ public class MainActivity extends AppCompatActivity
      *
      * @param visible 表示／非表示
      */
-    private void splashVisible(int visible) {
+    private void setSplashVisible(int visible) {
+        Log.d(TAG, "setSplashVisible");
 
         if (mSplashView == null || mSplashView.getVisibility() == visible)
             return;
@@ -460,5 +518,34 @@ public class MainActivity extends AppCompatActivity
         }
 
         mSplashView.setVisibility(visible);
+    }
+
+    /**
+     * コーチマークを表示
+     *
+     * @param view
+     */
+    private void showCoachMark(View view) {
+        Log.d(TAG, "showCoachMark");
+
+        mShowcaseView = new ShowcaseView.Builder(this)
+                .setTarget(new ViewTarget(view))
+                .setContentTitle(getString(R.string.coach_mark_title))
+                .setContentText(getString(R.string.coach_mark_text))
+                .hideOnTouchOutside()
+                .setStyle(R.style.CustomShowcaseTheme)
+                .withMaterialShowcase()
+                .doNotBlockTouches() //ShowcaseView下のボタンを触れるように。
+                .build();
+        mShowcaseView.hideButton(); // Showcase上のボタンを隠す。
+    }
+
+    /**
+     * コーチマークを非表示
+     */
+    private void hideCoachMark() {
+
+        if (mShowcaseView != null)
+            mShowcaseView.hide();
     }
 }

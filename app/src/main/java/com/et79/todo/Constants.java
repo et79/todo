@@ -8,6 +8,8 @@ public interface Constants {
     String STR_POSITION = "position";
     String STR_TASK = "task";
 
+    String STR_IS_FIRST="isFirst";
+
     int NUM_UNDEFINED = -1;
 
     int RESULT_TASKEDITACTIVITY = 1001;
