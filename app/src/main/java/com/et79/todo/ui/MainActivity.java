@@ -31,6 +31,7 @@ import android.widget.Toast;
 import com.bumptech.glide.Glide;
 import com.et79.todo.Constants;
 import com.et79.todo.R;
+import com.et79.todo.TodoApplication;
 import com.et79.todo.models.TodoTask;
 import com.et79.todo.adapters.FirebaseTaskListAdapter;
 import com.et79.todo.adapters.FirebaseTaskListEventListener;
@@ -40,6 +41,7 @@ import com.github.amlcurran.showcaseview.ShowcaseView;
 import com.github.amlcurran.showcaseview.targets.ViewTarget;
 import com.google.android.gms.auth.api.Auth;
 
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.firebase.auth.FirebaseAuth;
@@ -62,6 +64,7 @@ public class MainActivity extends AppCompatActivity
     private static final String TAG = "MainActivity";
 
     private GoogleApiClient mGoogleApiClient;
+    private TodoApplication mApplication;
 
     // RecyclerView instance variables
     private RecyclerView mTaskRecyclerView;
@@ -84,6 +87,8 @@ public class MainActivity extends AppCompatActivity
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        mApplication = (TodoApplication) getApplication();
 
         mTaskRecyclerView = (RecyclerView) findViewById(R.id.taskRecyclerView);
         mTaskRecyclerView.setHasFixedSize(true);
@@ -128,10 +133,18 @@ public class MainActivity extends AppCompatActivity
         toggle.syncState();
 
         // Initialize Google Api Client.
+        // Configure Google Sign In
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .enableAutoManage(this /* FragmentActivity */, this /* OnConnectionFailedListener */)
-                .addApi(Auth.GOOGLE_SIGN_IN_API)
+                .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
                 .build();
+
+        mApplication.setGoogleApiClient(mGoogleApiClient);
 
         // Firebase Authentication のセットアップ
         setUpFirebaseAuth();
@@ -148,7 +161,7 @@ public class MainActivity extends AppCompatActivity
      * @return true: 初回起動 false: ２回目以降
      */
     private boolean getIsFirst() {
-        Log.d(TAG, "isFirst");
+        Log.d(TAG, "getIsFirst");
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         return prefs.getBoolean(Constants.STR_IS_FIRST, true);
@@ -182,6 +195,8 @@ public class MainActivity extends AppCompatActivity
 
         // Initialize Firebase Auth
         mFirebaseAuth = FirebaseAuth.getInstance();
+        mApplication.setFirebaseAuth(mFirebaseAuth);
+
         mFirebaseUser = mFirebaseAuth.getCurrentUser();
 
         if (mFirebaseUser == null) {

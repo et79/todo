@@ -14,7 +14,6 @@ import android.content.CursorLoader;
 import android.content.Loader;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.AsyncTask;
 
 import android.os.Build;
 import android.os.Bundle;
@@ -23,21 +22,16 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
-import android.view.inputmethod.EditorInfo;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import com.et79.todo.Constants;
 import com.et79.todo.R;
-import com.et79.todo.models.TodoTask;
-import com.et79.todo.util.util;
+import com.et79.todo.TodoApplication;
 import com.google.android.gms.auth.api.Auth;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.auth.api.signin.GoogleSignInResult;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.SignInButton;
@@ -50,11 +44,10 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.GoogleAuthProvider;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import static android.Manifest.permission.READ_CONTACTS;
-import static com.et79.todo.util.util.isOnline;
+
 
 /**
  * A login screen that offers login via email/password.
@@ -89,12 +82,16 @@ public class LoginActivity extends AppCompatActivity implements
     Button mEmailSignInButton;
     SignInButton mGoogleSignInButton;
 
+    private TodoApplication mApplication;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.d(TAG, "onCreate");
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+
+        mApplication = (TodoApplication) getApplication();
 
         // Set up the login form.
         mEmailView = (AutoCompleteTextView) findViewById(R.id.email);
@@ -112,21 +109,12 @@ public class LoginActivity extends AppCompatActivity implements
         mEmailSignUpButton.setOnClickListener(this);
         mEmailSignInButton.setOnClickListener(this);
 
-        // Configure Google Sign In
-        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestIdToken(getString(R.string.default_web_client_id))
-                .requestEmail()
-                .build();
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .enableAutoManage(this /* FragmentActivity */, this /* OnConnectionFailedListener */)
-                .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
-                .build();
-
         // Initialize FirebaseAuth
-        mFirebaseAuth = FirebaseAuth.getInstance();
+        mGoogleApiClient = mApplication.getGoogleApiClient();
+        mFirebaseAuth = mApplication.getFirebaseAuth();
     }
 
-    private void enableControls( boolean isEnable ) {
+    private void enableControls(boolean isEnable) {
         Log.d(TAG, "enableControls");
 
         mEmailView.setEnabled(isEnable);
@@ -182,6 +170,10 @@ public class LoginActivity extends AppCompatActivity implements
             } else {
                 // Google Sign In failed
                 Log.e(TAG, "Google Sign In failed.");
+                Toast.makeText(LoginActivity.this, getString(R.string.error_google_sign_in),
+                        Toast.LENGTH_SHORT).show();
+
+                enableControls(true);
             }
         }
     }
@@ -203,6 +195,7 @@ public class LoginActivity extends AppCompatActivity implements
 
     /**
      * Email でのログイン
+     *
      * @param email
      * @param password
      */
@@ -222,6 +215,7 @@ public class LoginActivity extends AppCompatActivity implements
 
     /**
      * Email でのユーザ作成
+     *
      * @param email
      * @param password
      */
@@ -241,6 +235,7 @@ public class LoginActivity extends AppCompatActivity implements
 
     /**
      * ログイン後の処理
+     *
      * @param task
      */
     private void postSignIn(Task<AuthResult> task) {
@@ -251,20 +246,21 @@ public class LoginActivity extends AppCompatActivity implements
         // If sign in fails, display a message to the user. If sign in succeeds
         // the auth state listener will be notified and logic to handle the
         // signed in user can be handled in the listener.
-        if (!task.isSuccessful()) {
-            Log.w(TAG, "signInWithCredential", task.getException());
-            Toast.makeText(LoginActivity.this, "Authentication failed.",
-                    Toast.LENGTH_SHORT).show();
-        } else {
-//            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+        if (task.isSuccessful()) {
             setResult(RESULT_OK, new Intent());
             finish();
+        } else {
+            Log.w(TAG, "signInWithCredential: " + task.getException());
+            Toast.makeText(LoginActivity.this, "Authentication failed.",
+                    Toast.LENGTH_SHORT).show();
+
+            enableControls(true);
         }
     }
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (event.getAction()==KeyEvent.ACTION_DOWN) {
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
             switch (event.getKeyCode()) {
                 // Backキー無効化
                 case KeyEvent.KEYCODE_BACK:
@@ -378,8 +374,7 @@ public class LoginActivity extends AppCompatActivity implements
             // TODO: register the new account here.
             if (isSignIn) {
                 signInWithEmail(email, password);
-            }
-            else {
+            } else {
                 signUpWithEmail(email, password);
             }
         }

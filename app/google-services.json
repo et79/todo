@@ -15,6 +15,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "325656119457-hgp42s5u389muqq6g26r9t4hbbearg0d.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.et79.todo",
+            "certificate_hash": "3412FA7307866E3C1E6DA0370360E7B5C8D179A2"
+          }
+        },
+        {
+          "client_id": "325656119457-q6b042icphc2mgh2gmnk4p60pt1bebef.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.et79.todo",
+            "certificate_hash": "27A88A204144DD94A8B1A8D24C21E2B34E8372B2"
+          }
+        },
+        {
           "client_id": "325656119457-0vrij3544nig1tkihts16gpuip2k62gt.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
